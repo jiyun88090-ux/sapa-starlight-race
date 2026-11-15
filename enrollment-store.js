@@ -26,7 +26,7 @@ export function enrollmentError(error){
  if(code.includes('unauthorized-domain'))return 'Firebase Authentication → 설정 → 승인된 도메인에 현재 사이트 주소를 등록해 주세요.';
  if(code.includes('popup-blocked'))return '로그인 팝업을 허용한 뒤 다시 눌러주세요.';
  if(code.includes('popup-closed')||code.includes('cancelled-popup'))return '로그인 창이 닫혔습니다. 다시 시도해 주세요.';
- if(code.includes('permission-denied'))return '접근 권한이 없습니다. Firestore 보안 규칙과 관리자 UID 등록을 확인해 주세요.';
+ if(code.includes('permission-denied'))return '접근 권한이 없습니다. 새 방 개설용 Firestore 보안 규칙이 게시되었는지 확인해 주세요.';
  if(code.includes('too-many-requests'))return '신청이 일시적으로 몰렸습니다. 잠시 후 다시 시도하거나 다른 인터넷 연결을 이용해 주세요.';
  if(code.includes('unavailable')||code.includes('network')||error instanceof TypeError)return '인터넷 연결 또는 Firebase 연결 상태를 확인해 주세요.';
  return error?.message||'처리를 완료하지 못했습니다. 다시 시도해 주세요.';
