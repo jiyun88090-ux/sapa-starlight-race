@@ -7,7 +7,7 @@ export function mountClassRoster(onChange){
   for(let classroom=1;classroom<=7;classroom++){
    const row=document.createElement('div');row.className='class-entry';
    const label=document.createElement('label'),check=document.createElement('input'),name=document.createElement('span');check.type='checkbox';check.setAttribute('aria-label',grade+'학년 '+classroom+'반 참여');name.textContent=grade+'학년 '+classroom+'반';label.append(check,name);
-   const count=document.createElement('input');count.type='number';count.min='1';count.max='99';count.step='1';count.placeholder='인원';count.disabled=true;count.setAttribute('aria-label',grade+'학년 '+classroom+'반 인원수');
+   const count=document.createElement('input');count.type='number';count.min='1';count.max='99';count.step='1';count.value='22';count.placeholder='인원';count.disabled=true;count.setAttribute('aria-label',grade+'학년 '+classroom+'반 인원수');
    const unit=document.createElement('span');unit.textContent='명';row.append(label,count,unit);group.append(row);
    rows.push({grade,classroom,row,check,count});check.onchange=()=>notify();count.oninput=()=>notify();
   }
@@ -24,6 +24,6 @@ export function mountClassRoster(onChange){
   if(students().length>1200)return '전체 참가 인원은 1,200명까지 입력할 수 있습니다.';
   return '';
  }
- function restore(saved){if(Array.isArray(saved))for(const r of rows){const item=saved.find(x=>x.grade===r.grade&&x.classroom===r.classroom);if(item){r.check.checked=item.enabled===true;const n=Number(item.count);r.count.value=Number.isInteger(n)&&n>=1&&n<=99?String(n):'';}}sync();}
+ function restore(saved){if(Array.isArray(saved))for(const r of rows){const item=saved.find(x=>x.grade===r.grade&&x.classroom===r.classroom);if(item){r.check.checked=item.enabled===true;const n=Number(item.count);r.count.value=Number.isInteger(n)&&n>=1&&n<=99?String(n):'22';}}sync();}
  sync();return {panel,students,validate,restore,serialize:()=>rows.map(r=>({grade:r.grade,classroom:r.classroom,enabled:r.check.checked,count:r.count.value})),selectedCount:()=>rows.filter(r=>r.check.checked).length};
 }
