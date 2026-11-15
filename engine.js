@@ -27,13 +27,26 @@ export function shuffle(a,randomInt=secureInt){const out=[...a];for(let i=out.le
 export function identity(p,revealed){return revealed&&p.grade?`${p.grade}학년 ${p.classroom}반 ${String(p.number).padStart(2,'0')}번`:`${String(revealed?p.number:(p.displayNumber??p.number)).padStart(2,'0')}번`;}
 export function maxClassSize(roster){return Math.min(50,new Set(roster.map(p=>p.number)).size);}
 export function manualRoster(n){return Array.from({length:n},(_,i)=>({id:`runner-${i+1}`,grade:0,classroom:0,number:i+1,displayNumber:i+1}));}
-export function prepareDraw(pool,mode='manual'){
+export function prepareDraw(pool,mode='manual',winnerCount=3){
   // One runner per number. Rank numbers first; select a student within each number group.
   if(mode==='manual'){const cast=shuffle(pool);return {cast,order:cast.map(p=>p.id),all:cast,count:cast.length};}
   const groups=new Map();for(const p of pool){if(!groups.has(p.number))groups.set(p.number,[]);groups.get(p.number).push(p);}
-  const numbers=shuffle([...groups.keys()]).slice(0,50);
-  const cast=numbers.map(number=>({...shuffle(groups.get(number))[0],displayNumber:number}));
-  return {cast,order:cast.map(p=>p.id),all:cast,count:cast.length};
+  const numbers=shuffle([...groups.keys()]);
+  const k=Math.min(50,numbers.length,Math.max(1,Math.floor(winnerCount)||1));
+  const classKey=p=>`${p.grade}-${p.classroom}`;
+  const choices=new Map(numbers.map(number=>[number,shuffle([...new Set(groups.get(number).map(classKey))])]));
+  // Maximum matching: each class has two seats among the winners.
+  // Augmenting paths avoid wasting a class needed by a restricted number.
+  function assign(cap){
+   const seats=new Map(),winners=[];
+   function place(number,seen){for(const classroom of choices.get(number))for(let seat=0;seat<cap;seat++){const key=classroom+':'+seat;if(seen.has(key))continue;seen.add(key);if(!seats.has(key)||place(seats.get(key),seen)){seats.set(key,number);return true;}}return false;}
+   for(const number of numbers){if(place(number,new Set()))winners.push(number);if(winners.length===k)break;}
+   return {winners,classes:new Map([...seats].map(([key,number])=>[number,key.split(':')[0]]))};
+  }
+  let cap=2,assignment=assign(cap);while(assignment.winners.length<k&&cap<k)assignment=assign(++cap);
+  const ranked=[...assignment.winners,...numbers.filter(number=>!assignment.classes.has(number))].slice(0,50);
+  const cast=ranked.map(number=>{const candidates=groups.get(number).filter(p=>!assignment.classes.has(number)||classKey(p)===assignment.classes.get(number));return {...shuffle(candidates)[0],displayNumber:number};});
+  return {cast,order:cast.map(p=>p.id),all:cast,count:cast.length,classLimit:cap};
 }
 const mix=(a,b,t)=>a+(b-a)*t;
 const ease=t=>{const u=Math.max(0,Math.min(1,t));return u*u*(3-2*u);};

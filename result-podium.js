@@ -27,14 +27,14 @@ function element(tag,className,text){
 
 export function renderPodium(host,{plan,results,winnerCount,tinted=true,revealedRanks=null}){
  host.replaceChildren();
- const finalists=results.slice(0,Math.min(5,plan.count));
+ const finalists=results.slice(0,Math.min(8,winnerCount,results.length));
  if(!finalists.length){host.hidden=true;return;}
  host.hidden=false;host.classList.add('podium-awards');
  host.setAttribute('role','region');host.setAttribute('aria-label',`레이싱 최종 ${finalists.length}위 시상대`);
  host.closest('.result-dialog')?.classList.add('has-character-podium');
  const title=element('div','podium-caption');
  title.append(element('span','podium-caption-star','✦'),element('span','podium-caption-text',`별빛레이스 TOP ${finalists.length}`),element('span','podium-caption-star','✦'));
- const stage=element('div','podium-stage');stage.dataset.count=String(finalists.length);
+ const stage=element('div','podium-stage');stage.dataset.count=String(finalists.length);stage.dataset.many=String(finalists.length>5);stage.style.setProperty('--award-count',String(finalists.length));stage.style.gridTemplateColumns=`repeat(${finalists.length},minmax(0,1fr))`;
  const light=element('div','podium-lights');light.setAttribute('aria-hidden','true');stage.append(light);
  const confetti=element('div','podium-confetti');confetti.setAttribute('aria-hidden','true');
  for(let i=0;i<18;i++){
@@ -47,7 +47,7 @@ export function renderPodium(host,{plan,results,winnerCount,tinted=true,revealed
  }
  stage.append(confetti);
  const types=new Map(plan.runners.map(r=>[r.id,r]));
- const columns={1:3,2:2,3:4,4:1,5:5};
+ const columns={},positions=[],center=Math.ceil(finalists.length/2);positions.push(center);for(let offset=1;positions.length<finalists.length;offset++){if(center-offset>=1)positions.push(center-offset);if(center+offset<=finalists.length)positions.push(center+offset);}positions.forEach((column,i)=>columns[i+1]=column);
  for(let i=0;i<finalists.length;i++){
   const result=finalists[i],rank=i+1,isWinner=i<winnerCount;
   const place=element('article',`podium-place podium-place-${rank}${isWinner?' is-winner':''}`);
@@ -58,7 +58,7 @@ export function renderPodium(host,{plan,results,winnerCount,tinted=true,revealed
   const character=element('div','podium-character');
   if(rank===1){const crown=element('span','podium-crown','♛');crown.setAttribute('aria-hidden','true');character.append(crown);}
   const racer=types.get(result.id);
-  character.append(createCharacterPortrait(racer?.type??0,{size:rank===1?132:rank<=3?118:102,celebrate:true,variant:racer?.colorVariant??0,tinted}));
+  character.append(createCharacterPortrait(racer?.type??0,{size:finalists.length>5?(rank===1?112:90):(rank===1?132:rank<=3?118:102),celebrate:true,variant:racer?.colorVariant??0,tinted}));
   const platform=element('div','podium-platform');
   const medal=element('span','podium-rank',`${rank}위`);
   const label=element('div','podium-identity');
@@ -67,6 +67,7 @@ export function renderPodium(host,{plan,results,winnerCount,tinted=true,revealed
   const badge=element('span',`podium-award-badge${isWinner?'':' is-placement'}`,isWinner?'당첨':'레이스 순위');
   platform.append(medal,label,badge);place.append(character,platform);stage.append(place);
  }
- const foot=element('p','podium-footnote',winnerCount<finalists.length?'당첨 표시가 있는 참가자가 이번 추첨의 당첨자입니다.':'오늘의 별빛 주인공을 축하합니다!');
+ const rule=plan.classLimit?plan.classLimit<=2?' · 같은 반 당첨 최대 2명':` · 후보 학급이 부족하여 같은 반 최대 ${plan.classLimit}명으로 조정`:'';
+ const foot=element('p','podium-footnote','오늘의 별빛 주인공을 축하합니다!'+rule);
  host.append(title,stage,foot);
 }
