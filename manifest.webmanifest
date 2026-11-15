@@ -1,0 +1,17 @@
+{
+ "id":"./",
+ "name":"창원사파고 별빛레이스",
+ "short_name":"별빛레이스",
+ "description":"제24회 터누림제 행운권 추첨 레이스",
+ "lang":"ko",
+ "start_url":"./index.html",
+ "scope":"./",
+ "display":"standalone",
+ "background_color":"#10172f",
+ "theme_color":"#10172f",
+ "icons":[
+  {"src":"./assets/icons/icon-192.png","sizes":"192x192","type":"image/png","purpose":"any"},
+  {"src":"./assets/icons/icon-512.png","sizes":"512x512","type":"image/png","purpose":"any"},
+  {"src":"./assets/icons/icon-maskable-512.png","sizes":"512x512","type":"image/png","purpose":"maskable"}
+ ]
+}
