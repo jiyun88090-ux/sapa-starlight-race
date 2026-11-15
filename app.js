@@ -41,10 +41,11 @@ let confirmedEnrollment=enrollmentUi.serialize();
 const modeUi=mountModes(()=>updateRosterUi());
 function draftRoster(){const base=modeUi.mode==='excel'?roster:modeUi.pool();if(modeUi.mode==='manual')return base;return [...new Map([...base,...enrollmentUi.students()].map(student=>[`${student.grade}-${student.classroom}-${student.number}`,student])).values()];}
 let classSettings=Array.isArray(settings?.classes)?settings.classes:[];
+if(settings?.classSizeVersion!=='all-22-v1'){classSettings=classSettings.map(row=>({...row,count:'22'}));settings={...(settings||{}),classes:classSettings,classSizeVersion:'all-22-v1'};try{localStorage.setItem('starlight-settings',JSON.stringify(settings));}catch{}}
 mode=['excel','classes'].includes(settings?.mode)?settings.mode:'manual';manualCount=Math.max(3,Math.min(50,settings?.manualCount||28));modeUi.restore(mode,manualCount,classSettings);
 if(mode==='classes'&&modeUi.validateClasses()&&(modeUi.selectedClasses>0||enrollmentUi.students().length<3)){mode='manual';modeUi.restore(mode,manualCount,classSettings);}
 activeRoster=draftRoster();if(maxClassSize(activeRoster)<3||activeRoster.length>MAX_PARTICIPANTS){mode='manual';modeUi.restore(mode,manualCount,classSettings);activeRoster=modeUi.pool();}winnerCount=Math.min(winnerCount,mode==='manual'?manualCount:Math.min(activeRoster.length,maxClassSize(activeRoster)));
-function save(){try{localStorage.setItem('starlight-settings',JSON.stringify({roster:roster.map(p=>p.id),name:rosterName,winners:winnerCount,mode,manualCount,classes:classSettings,grade3Enrollment:confirmedEnrollment,quality,characterColors,raceDuration,volume:audio.volume,muted:audio.muted}));}catch{}}
+function save(){try{localStorage.setItem('starlight-settings',JSON.stringify({roster:roster.map(p=>p.id),name:rosterName,winners:winnerCount,mode,manualCount,classes:classSettings,classSizeVersion:'all-22-v1',grade3Enrollment:confirmedEnrollment,quality,characterColors,raceDuration,volume:audio.volume,muted:audio.muted}));}catch{}}
 function updateRosterUi(){
  const draft=modeUi.mode,pool=draftRoster(),n=pool.length,limit=draft==='manual'?n:n?Math.min(n,maxClassSize(pool)):0;enrollmentUi.setMode(draft);
  $('rosterBadge').textContent=mode==='manual'?`번호 레이스 · ${activeRoster.length}명`:`학생 ${activeRoster.length}명 · 캐릭터 ${plan?.count??maxClassSize(activeRoster)}명`;

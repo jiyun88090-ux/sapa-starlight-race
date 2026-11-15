@@ -2,6 +2,7 @@ import {currentRoom,prepareRoom} from './race-room.js';
 export function syncSetupRoom(){
  const room=currentRoom(),dialog=document.getElementById('setupDialog'),created=!!room?.established;
  dialog.classList.toggle('room-established',created);dialog.classList.toggle('choosing',!created&&!dialog.dataset.roomChosen);
+ document.querySelector('.mode-tabs').hidden=!dialog.classList.contains('choosing');
  document.querySelector('.dialog-heading h2').textContent=created?'현재 방 설정':'레이스 방 개설';
  const name={classes:'학급별 입력',excel:'엑셀 명단',manual:'인원 직접 선택'}[room?.mode];
  document.querySelector('.dialog-heading p').textContent=room?`${name} 방 · 참가 인원과 경주 설정을 확인하세요.`:'참가 방법을 선택해 방을 만들어 주세요.';
