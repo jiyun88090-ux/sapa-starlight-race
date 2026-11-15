@@ -4,7 +4,7 @@ export const FINISH = 560;
 export const EVENT_NAMES = {banana:'바나나에 미끌!',hurdle:'허들 점프!',tumble:'우당탕! 다시 출발!',pit:'앗, 함정이다!',dig:'비밀 함정 만들기!',boost:'별빛 부스터!',spin:'회전 막대에 휘청!',turntable:'회전판에 빙글!',waterballoon:'물풍선에 갇혔다!',dodge:'옆으로 쏙! 장애물 회피!'};
 export function parseStudentId(value) {
   const raw=String(value??'').trim().replace(/\.0+$/,'');
-  const m=raw.match(/^([12])(\d{1,2})(\d{2})$/);
+  const m=raw.match(/^([123])(\d{1,2})(\d{2})$/);
   if(!m || +m[2]<1 || +m[3]<1) return null;
   return {id:raw,grade:+m[1],classroom:+m[2],number:+m[3]};
 }
@@ -30,9 +30,9 @@ export function manualRoster(n){return Array.from({length:n},(_,i)=>({id:`runner
 export function prepareDraw(pool,mode='manual'){
   // Shuffle the ENTIRE student population before choosing the visual cast.
   // Taking the first K winners gives every student exactly K / N probability.
-  const all=shuffle(pool),count=mode==='excel'?Math.min(pool.length,maxClassSize(pool)):pool.length;
+  const all=shuffle(pool),count=mode!=='manual'?Math.min(pool.length,maxClassSize(pool)):pool.length;
   const slots=shuffle(Array.from({length:count},(_,i)=>i+1));
-  const cast=all.slice(0,count).map((p,i)=>({...p,displayNumber:mode==='excel'?slots[i]:p.number}));
+  const cast=all.slice(0,count).map((p,i)=>({...p,displayNumber:mode!=='manual'?slots[i]:p.number}));
   return {cast,order:cast.map(p=>p.id),all,count};
 }
 const mix=(a,b,t)=>a+(b-a)*t;
@@ -299,14 +299,15 @@ export function makePlan(participants, {seed=secureInt(4294967295),order=shuffle
     {at:50,duration:1.6,title:'마지막 승부, 아직 끝나지 않았어!',kind:'sprint',runnerId:order[Math.min(1,n-1) ]},
     {at:53.6,duration:1.5,title:'마지막 직선, 전력 질주!',kind:'sprint',runnerId:winner.id},
     {at:55.4,duration:.7,title:'결승선 앞, 끝까지 달려!',kind:'finish',runnerId:dramaticFinish?challenger.id:winner.id},
-    {at:56.3,duration:.9,title:dramaticFinish?'휘청한 순간, 마지막 역전!':'추격을 뿌리친 선두! 끝까지!',kind:dramaticFinish?'comeback':'defend',runnerId:winner.id}
+    {at:57.78,duration:.9,title:dramaticFinish?'휘청한 순간, 마지막 역전!':'추격을 뿌리친 선두! 끝까지!',kind:dramaticFinish?'comeback':'defend',runnerId:winner.id}
   ];
-  const finishEvent={kind:dramaticFinish?'overtake':'defend',at:56.3,duration:.9,overtakeAt:dramaticFinish?56.45:null,winnerId:winner.id,challengerId:challenger.id,leaderBeforeId:dramaticFinish?challenger.id:winner.id,crossings:runners.filter(r=>r.rank<5).sort((a,b)=>a.rank-b.rank).map(r=>({runnerId:r.id,rank:r.rank,at:56+(r.finish-58.8)/.3}))};
+  const finishEvent={kind:dramaticFinish?'overtake':'defend',at:57.78,duration:.9,overtakeAt:dramaticFinish?57.87:null,winnerId:winner.id,challengerId:challenger.id,leaderBeforeId:dramaticFinish?challenger.id:winner.id,crossings:runners.filter(r=>r.rank<5).sort((a,b)=>a.rank-b.rank).map(r=>({runnerId:r.id,rank:r.rank,at:56+(r.finish-58)/.5}))};
   const startGrid={columns:gridColumns,rows:gridRows,columnSpacing:3.5,rowSpacing:3.5,startLine:0,slots:runners.map(r=>({id:r.id,x:r.gridX,z:r.gridZ}))};
   return {runners,obstacles,beats,dramaticFinish,finishEvent,startGrid,order:[...order],seed,lanes,count:n,duration:DURATION};
 }
 export function positionAt(r,t){
- // The first five cross at wall 57.0, 57.6, 58.2, 58.8 and 59.4 seconds.
+ // On the 60-second timeline the first five cross at 58.2, 58.56,
+ // 58.92, 59.28 and 59.64 seconds during the 0.5x finish.
  // They keep moving beyond the stripe while the remaining field approaches.
  if(t>=FINAL_SEQUENCE_AT)return finishPosition(r,t);
  const rate=r.sampleRate||20,s=Math.max(0,Math.min(60,t))*rate,i=Math.min(r.samples.length-2,Math.floor(s));return mix(r.samples[i],r.samples[i+1],Math.min(1,s-i));
@@ -334,7 +335,8 @@ export function cameraPhase(t){return t<=20?0:t<45?((t-20)/25)*.7:.7+.3*Math.min
 // A final sprint followed by genuine slow motion, ending at 60 wall-clock seconds.
 export function cinemaTime(t){
  if(t<=52)return t;
- // Smooth acceleration into the sprint, then a continuous 0.3x finish.
- if(t<56){const u=(t-52)/4;return 52+4*u+11.2*u*u-8.4*u*u*u;}
- return Math.min(60,58.8+(t-56)*.3);
+ // Join the final 0.5x segment with continuous position and speed.
+ // Its scene clock reaches 60 exactly when the race timer ends.
+ if(t<56){const u=(t-52)/4;return 52+4*u+8*u*u-6*u*u*u;}
+ return Math.min(60,58+(t-56)*.5);
 }

@@ -1,0 +1,5 @@
+.quick-result{white-space:nowrap;color:#ffe0a2;border:1px solid #ecc77870;background:#cfa55f16}
+.quick-result:hover{background:#cfa55f30}.custom-duration{margin-top:8px}.duration-hint{font-size:10px;line-height:1.65;color:#bac6dc;margin:7px 0 10px}
+@media(max-width:1000px){.controls .quick-result{font-size:12px;padding:9px 11px}.controls .race-state{min-width:0;flex:1}.controls .race-state small{max-width:30vw}.controls .control-buttons{flex-shrink:0}}
+@media(orientation:landscape) and (max-height:500px){.controls .quick-result{font-size:10px;padding:7px 8px;min-height:35px}.controls .race-state small{display:none}.controls .race-state b{font-size:10px}.controls .control-buttons{gap:4px}}
+@media(max-width:500px) and (orientation:portrait){.controls{height:auto;min-height:100px;flex-wrap:wrap;padding-block:8px;gap:6px}.controls .race-state{max-width:100%;flex-basis:100%}.controls .race-state small{display:none}.controls .control-buttons{width:100%;justify-content:flex-end;gap:5px}.controls .quick-result{font-size:11px;padding:9px 10px}}
