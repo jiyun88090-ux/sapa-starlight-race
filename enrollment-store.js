@@ -12,11 +12,11 @@ export function connectEnrollment(){
  return connection;
 }
 export function normalizeEventId(value){const id=String(value||'').trim();return /^[a-zA-Z0-9_-]{1,60}$/.test(id)?id:defaultEventId;}
-export function studentFromId(value){const id=String(value??'').trim(),m=id.match(/^3([1-7])(0[1-9]|[1-9][0-9])$/);return m?{id,grade:3,classroom:Number(m[1]),number:Number(m[2])}:null;}
+export function studentFromId(value){const id=String(value??'').trim(),m=id.match(/^([123])([1-7])(0[1-9]|[1-9][0-9])$/);return m?{id,grade:Number(m[1]),classroom:Number(m[2]),number:Number(m[3])}:null;}
 export function validatedSnapshot(value){
- if(!value||value.format!=='starlight-grade3-v1'||!Array.isArray(value.students)||value.students.length>693||!Number.isFinite(Date.parse(value.closedAt)))throw Error('별빛레이스에서 마감 후 저장한 3학년 명단 파일을 선택해 주세요.');
+ if(!value||value.format!=='starlight-grade3-v1'||!Array.isArray(value.students)||value.students.length>2079||!Number.isFinite(Date.parse(value.closedAt)))throw Error('별빛레이스에서 마감 후 저장한 QR 신청 명단 파일을 선택해 주세요.');
  const ids=value.students.map(row=>typeof row==='string'?row:row?.id),students=ids.map(studentFromId);
- if(students.some(row=>!row)||new Set(students.map(row=>row.id)).size!==ids.length)throw Error('3학년 학번이 잘못되었거나 중복되어 있습니다.');
+ if(students.some(row=>!row)||new Set(students.map(row=>row.id)).size!==ids.length)throw Error('QR 신청 학번이 잘못되었거나 중복되어 있습니다.');
  return {format:'starlight-grade3-v1',eventId:normalizeEventId(value.eventId),closedAt:value.closedAt,students:students.sort((a,b)=>a.id.localeCompare(b.id))};
 }
 export function joinUrl(eventId){const url=new URL('join.html',publicSiteUrl);url.searchParams.set('event',normalizeEventId(eventId));return url.href;}
@@ -31,4 +31,4 @@ export function enrollmentError(error){
  if(code.includes('unavailable')||code.includes('network')||error instanceof TypeError)return '인터넷 연결 또는 Firebase 연결 상태를 확인해 주세요.';
  return error?.message||'처리를 완료하지 못했습니다. 다시 시도해 주세요.';
 }
-export function downloadEnrollment(value){const blob=new Blob([JSON.stringify(value,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`별빛레이스_3학년_${value.eventId}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+export function downloadEnrollment(value){const blob=new Blob([JSON.stringify(value,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`별빛레이스_QR 신청_${value.eventId}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}

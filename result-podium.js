@@ -25,7 +25,7 @@ function element(tag,className,text){
  return node;
 }
 
-export function renderPodium(host,{plan,results,winnerCount,tinted=true}){
+export function renderPodium(host,{plan,results,winnerCount,tinted=true,revealedRanks=null}){
  host.replaceChildren();
  const finalists=results.slice(0,Math.min(5,plan.count));
  if(!finalists.length){host.hidden=true;return;}
@@ -52,7 +52,8 @@ export function renderPodium(host,{plan,results,winnerCount,tinted=true}){
   const result=finalists[i],rank=i+1,isWinner=i<winnerCount;
   const place=element('article',`podium-place podium-place-${rank}${isWinner?' is-winner':''}`);
   place.style.gridColumn=String(columns[rank]);place.dataset.rank=String(rank);
-  const identity=result.grade?`${result.grade}학년 ${result.classroom}반 ${String(result.number).padStart(2,'0')}번`:`${String(result.number).padStart(2,'0')}번`;
+  const visible=!result.grade||revealedRanks===null||revealedRanks.has(rank);
+  const identity=result.grade&&visible?`${result.grade}학년 ${result.classroom}반 ${String(result.number).padStart(2,'0')}번`:`${String(result.number).padStart(2,'0')}번`;
   place.setAttribute('aria-label',`${rank}위, ${identity}${isWinner?', 당첨':''}`);
   const character=element('div','podium-character');
   if(rank===1){const crown=element('span','podium-crown','♛');crown.setAttribute('aria-hidden','true');character.append(crown);}
@@ -61,7 +62,7 @@ export function renderPodium(host,{plan,results,winnerCount,tinted=true}){
   const platform=element('div','podium-platform');
   const medal=element('span','podium-rank',`${rank}위`);
   const label=element('div','podium-identity');
-  if(result.grade)label.append(element('small','podium-class',`${result.grade}학년 ${result.classroom}반`));
+  if(result.grade)label.append(element('small','podium-class',visible?`${result.grade}학년 ${result.classroom}반`:'학년 · 반 공개 대기'));
   label.append(element('b','podium-number',`${String(result.number).padStart(2,'0')}번`));
   const badge=element('span',`podium-award-badge${isWinner?'':' is-placement'}`,isWinner?'당첨':'레이스 순위');
   platform.append(medal,label,badge);place.append(character,platform);stage.append(place);

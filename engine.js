@@ -25,15 +25,15 @@ export function rng(seed){return ()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.
 export function secureInt(max){if(!Number.isInteger(max)||max<1)throw Error('Invalid range');const a=new Uint32Array(1),limit=Math.floor(4294967296/max)*max;do{globalThis.crypto.getRandomValues(a);}while(a[0]>=limit);return a[0]%max;}
 export function shuffle(a,randomInt=secureInt){const out=[...a];for(let i=out.length-1;i>0;i--){const j=randomInt(i+1);[out[i],out[j]]=[out[j],out[i]];}return out;}
 export function identity(p,revealed){return revealed&&p.grade?`${p.grade}학년 ${p.classroom}반 ${String(p.number).padStart(2,'0')}번`:`${String(revealed?p.number:(p.displayNumber??p.number)).padStart(2,'0')}번`;}
-export function maxClassSize(roster){const sizes=new Map();for(const p of roster){const key=`${p.grade}-${p.classroom}`;sizes.set(key,(sizes.get(key)||0)+1);}return Math.min(50,Math.max(3,...sizes.values()));}
+export function maxClassSize(roster){return Math.min(50,new Set(roster.map(p=>p.number)).size);}
 export function manualRoster(n){return Array.from({length:n},(_,i)=>({id:`runner-${i+1}`,grade:0,classroom:0,number:i+1,displayNumber:i+1}));}
 export function prepareDraw(pool,mode='manual'){
-  // Shuffle the ENTIRE student population before choosing the visual cast.
-  // Taking the first K winners gives every student exactly K / N probability.
-  const all=shuffle(pool),count=mode!=='manual'?Math.min(pool.length,maxClassSize(pool)):pool.length;
-  const slots=shuffle(Array.from({length:count},(_,i)=>i+1));
-  const cast=all.slice(0,count).map((p,i)=>({...p,displayNumber:mode!=='manual'?slots[i]:p.number}));
-  return {cast,order:cast.map(p=>p.id),all,count};
+  // One runner per number. Rank numbers first; select a student within each number group.
+  if(mode==='manual'){const cast=shuffle(pool);return {cast,order:cast.map(p=>p.id),all:cast,count:cast.length};}
+  const groups=new Map();for(const p of pool){if(!groups.has(p.number))groups.set(p.number,[]);groups.get(p.number).push(p);}
+  const numbers=shuffle([...groups.keys()]).slice(0,50);
+  const cast=numbers.map(number=>({...shuffle(groups.get(number))[0],displayNumber:number}));
+  return {cast,order:cast.map(p=>p.id),all:cast,count:cast.length};
 }
 const mix=(a,b,t)=>a+(b-a)*t;
 const ease=t=>{const u=Math.max(0,Math.min(1,t));return u*u*(3-2*u);};

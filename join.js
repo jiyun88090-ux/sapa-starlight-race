@@ -11,7 +11,7 @@ try{
 }catch(error){status='offline';sync();message(enrollmentError(error),true);}
 $('joinForm').addEventListener('submit',async event=>{
  event.preventDefault();if(!sdk||busy||submitted)return;
- const student=studentFromId($('studentId').value);if(!student){message('3학년 학번 네 자리를 확인해 주세요. 예: 3105',true);return;}
+ const student=studentFromId($('studentId').value);if(!student){message('학생 학번 네 자리를 확인해 주세요. 예: 1105',true);return;}
  if(!$('joinConsent').checked){message('학번 수집·이용 동의에 체크해 주세요.',true);return;}
  if(!eventReady||status!=='open'){message('현재 접수 중이 아닙니다. 접수 상태를 확인해 주세요.',true);return;}
  busy=true;sync();message('신청을 저장하고 있어요…');

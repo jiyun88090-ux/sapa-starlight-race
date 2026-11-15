@@ -1,0 +1,50 @@
+rules_version = '2';
+service cloud.firestore {
+ match /databases/{database}/documents {
+  function signedIn() { return request.auth != null; }
+  function owner(eventId) {
+   return signedIn() && get(/databases/$(database)/documents/events/$(eventId)).data.ownerUid == request.auth.uid;
+  }
+  function accepting(eventId) {
+   return get(/databases/$(database)/documents/events/$(eventId)).data.status == 'open';
+  }
+  function validStudentId(id) { return id is string && id.matches('^[123][1-7](0[1-9]|[1-9][0-9])$'); }
+  match /events/{eventId} {
+   allow get: if true;
+   allow list, delete: if false;
+   allow create: if signedIn() && eventId.matches('^room_[a-f0-9]{32}$')
+    && request.resource.data.keys().hasOnly(['title','status','ownerUid','closedAt','updatedAt'])
+    && request.resource.data.ownerUid == request.auth.uid
+    && request.resource.data.status == 'open' && request.resource.data.closedAt == null
+    && request.resource.data.updatedAt == request.time;
+   allow update: if owner(eventId)
+    && request.resource.data.ownerUid == resource.data.ownerUid
+    && request.resource.data.title == resource.data.title
+    && request.resource.data.keys().hasOnly(['title','status','ownerUid','closedAt','updatedAt'])
+    && request.resource.data.updatedAt == request.time
+    && (request.resource.data.status == 'closed' || request.resource.data.status == 'open')
+    && (request.resource.data.status == 'open' || request.resource.data.closedAt is timestamp);
+   match /registrations/{studentId} {
+    allow get: if owner(eventId) || (signedIn() && resource.data.uid == request.auth.uid);
+    allow list, delete: if owner(eventId);
+    allow update: if false;
+    allow create: if signedIn() && accepting(eventId) && validStudentId(studentId)
+     && request.resource.data.keys().hasOnly(['studentId','uid','createdAt'])
+     && request.resource.data.studentId == studentId && request.resource.data.uid == request.auth.uid
+     && request.resource.data.createdAt == request.time
+     && !exists(/databases/$(database)/documents/events/$(eventId)/participantsByUid/$(request.auth.uid))
+     && getAfter(/databases/$(database)/documents/events/$(eventId)/participantsByUid/$(request.auth.uid)).data.studentId == studentId;
+   }
+   match /participantsByUid/{uid} {
+    allow get: if owner(eventId) || (signedIn() && request.auth.uid == uid);
+    allow list, delete: if owner(eventId);
+    allow update: if false;
+    allow create: if signedIn() && request.auth.uid == uid && accepting(eventId)
+     && request.resource.data.keys().hasOnly(['studentId','createdAt'])
+     && validStudentId(request.resource.data.studentId) && request.resource.data.createdAt == request.time
+     && !exists(/databases/$(database)/documents/events/$(eventId)/registrations/$(request.resource.data.studentId))
+     && getAfter(/databases/$(database)/documents/events/$(eventId)/registrations/$(request.resource.data.studentId)).data.uid == uid;
+   }
+  }
+ }
+}
