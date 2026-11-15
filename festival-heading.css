@@ -1,0 +1,10 @@
+.masthead{height:110px}
+.brand>div{display:block}
+.festival-heading{display:flex;align-items:baseline;gap:14px;margin-bottom:4px;white-space:nowrap;font-family:"Race Jua",sans-serif}
+.festival-name{font-size:clamp(23px,2.25vw,35px);line-height:1.15;color:#ffe0a3;letter-spacing:-.6px}
+.lottery-subtitle{font-size:clamp(17px,1.65vw,25px);color:#e8edf8;line-height:1.15}
+@media(min-width:1600px){.festival-name{font-size:35px}}
+@media(orientation:landscape) and (max-height:700px){.masthead{height:80px}.festival-name{font-size:clamp(20px,2.8vw,29px)}.lottery-subtitle{font-size:clamp(15px,2vw,21px)}.festival-heading{gap:10px;margin-bottom:3px}}
+@media(orientation:landscape) and (max-height:500px){.masthead{height:64px}.festival-name{font-size:clamp(18px,2.5vw,24px)}.lottery-subtitle{font-size:clamp(14px,1.8vw,18px)}}
+@media(orientation:landscape) and (max-height:360px){.masthead{height:60px}}
+@media(max-width:600px) and (orientation:portrait){.masthead{height:105px}.festival-name{font-size:21px}.lottery-subtitle{font-size:15px}.festival-heading{gap:8px;flex-wrap:wrap}}

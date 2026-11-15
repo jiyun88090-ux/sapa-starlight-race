@@ -1,0 +1,10 @@
+@font-face{font-family:'Race Jua';src:url('./assets/fonts/Jua-Regular.ttf') format('truetype');font-style:normal;font-weight:400;font-display:swap}
+@font-face{font-family:'Race Gowun';src:url('./assets/fonts/GowunDodum-Regular.ttf') format('truetype');font-style:normal;font-weight:400;font-display:swap}
+:root{font-family:'Race Gowun','Malgun Gothic',sans-serif;font-synthesis:none}
+body,button,input,select,textarea{font-family:'Race Gowun','Malgun Gothic',sans-serif}
+h1,h2,h3,.brand-subtitle,.primary-btn,.secondary-btn,.board-title,.rank-no,.rank-identity b,.timer,.countdown,.race-moment,.leader-spotlight,.finish-tally,.podium-caption-text,.podium-rank,.podium-number,.winner-card b,.roster-summary b,.number-field input{font-family:'Race Jua','Malgun Gothic',sans-serif;font-weight:400}
+h1{letter-spacing:-.5px}h1 em{font-weight:400}.board-title h2,.dialog-heading h2,.result-heading h2{letter-spacing:0}
+.rank-identity b,.podium-number,.winner-card b{letter-spacing:.3px}.eyebrow{letter-spacing:1.7px}.stage-badge,.course-stop,.status-dot,.field-label,.field-hint,.roster-summary p{letter-spacing:0}
+.primary-btn{font-size:17px}.secondary-btn{font-size:14px}.rank-identity small,.board-foot,.field-hint,.dialog-heading p,.roster-summary p{font-weight:400}.race-state small{line-height:1.4}
+.fullscreen-toggle{width:auto;min-width:36px;padding:0 10px;font-family:'Race Gowun',sans-serif;font-size:12px;white-space:nowrap}
+@media(max-width:700px){.primary-btn{font-size:14px}.secondary-btn{font-size:12px}.fullscreen-toggle{font-size:10px;padding:0 7px}}

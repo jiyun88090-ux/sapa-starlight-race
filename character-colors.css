@@ -1,0 +1,9 @@
+.race-character-portrait{position:relative;isolation:isolate}
+@supports (mask-image:url('')) or (-webkit-mask-image:url('')){
+ .race-character-portrait.is-tinted:after{content:'';position:absolute;inset:0;pointer-events:none;background:var(--portrait-tint);mix-blend-mode:multiply;mask-image:var(--portrait-mask);mask-size:400% 400%;mask-position:var(--portrait-position);mask-repeat:no-repeat;-webkit-mask-image:var(--portrait-mask);-webkit-mask-size:400% 400%;-webkit-mask-position:var(--portrait-position);-webkit-mask-repeat:no-repeat}
+}
+.header-actions .color-toggle{width:auto;min-width:36px;padding:0 10px;font-family:'Race Gowun',sans-serif;font-size:11px;white-space:nowrap;color:#ffe5bd}
+.header-actions .color-toggle[aria-pressed=true]{border-color:#d5b6ce77;background:linear-gradient(110deg,#dca1bf22,#92d7e922)}
+.color-mode-hint{font-size:10px;color:#b2bed3;line-height:1.5;margin:6px 0 0}
+@media(orientation:landscape) and (max-height:500px){.header-actions .color-toggle{font-size:9px;padding:0 6px}}
+@media(max-width:600px) and (orientation:portrait){.header-actions .color-toggle{font-size:0;padding:0;width:31px}.header-actions .color-toggle:before{content:'🎨';font-size:17px}}

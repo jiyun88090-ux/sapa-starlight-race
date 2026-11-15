@@ -1,0 +1,87 @@
+/* The race owns the available viewport; dialogs keep their own scrolling. */
+html,body{width:100%;max-width:none;margin:0}
+.app{width:100%;max-width:none;min-height:0;height:100dvh;padding:env(safe-area-inset-top,0px) max(12px,env(safe-area-inset-right,0px)) env(safe-area-inset-bottom,0px) max(12px,env(safe-area-inset-left,0px))}
+.masthead{height:76px;gap:16px}
+.brand{gap:12px;min-width:0}.brand>div{min-width:0}.brand-star{font-size:37px}.brand-star.small{font-size:22px}
+.brand .eyebrow{font-size:9px;letter-spacing:1.7px;margin-bottom:3px}
+.brand h1{font-size:clamp(23px,2.25vw,35px);line-height:1.15;letter-spacing:-.6px}
+.brand-subtitle{display:block;margin:4px 0 0;color:#d4def4;font-size:11px;line-height:1.1;letter-spacing:1.4px;font-weight:600}
+.race-layout{grid-template-columns:minmax(0,1fr) clamp(180px,15vw,224px);gap:10px;min-height:0}
+.stage,.leaderboard{min-height:0;border-radius:17px}
+.controls{height:60px;gap:14px}.controls .primary-btn{min-height:38px;padding:10px 22px}.controls .secondary-btn{min-height:38px;padding:9px 15px}
+.control-buttons{gap:8px}.race-state{min-width:0}.race-state small{max-width:min(52vw,650px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.board-title{padding:11px 13px}.board-title h2{font-size:18px}.board-title>span:first-child{font-size:20px}
+.rank-list{padding:6px;gap:4px}.rank-row{padding:3px 8px;border-radius:10px;gap:7px}.rank-identity b{font-size:clamp(18px,1.65vw,25px)}
+.board-foot{padding:6px 11px;font-size:9px}
+:fullscreen .app{height:100dvh;width:100vw}
+
+@media(min-width:1600px){
+ .masthead{height:80px}.controls{height:62px}.race-layout{grid-template-columns:minmax(0,1fr) 230px}
+ .brand h1{font-size:35px}.brand-subtitle{font-size:12px}.rank-identity b{font-size:26px}.rank-no{width:28px;height:28px;font-size:18px}
+}
+
+@media(orientation:landscape) and (max-height:700px){
+ body{overflow:hidden}
+ .app{min-height:0;height:100dvh;padding-left:max(8px,env(safe-area-inset-left,0px));padding-right:max(8px,env(safe-area-inset-right,0px))}
+ .masthead{height:58px;gap:12px}.brand{gap:8px}.brand-star{font-size:28px}.brand-star.small{display:none}
+ .brand>div{display:grid;grid-template-columns:auto auto;column-gap:13px;align-items:center}
+ .brand h1{grid-column:1 / -1;grid-row:1;font-size:clamp(20px,2.8vw,29px);line-height:1.05}
+ .brand .eyebrow{grid-column:1;grid-row:2;margin:3px 0 0;font-size:8px;letter-spacing:1.5px}
+ .brand-subtitle{grid-column:2;grid-row:2;justify-self:start;margin:3px 0 0;font-size:10px;letter-spacing:1.1px;color:#f3dcb1}
+ .header-actions{gap:6px}.header-actions .icon-btn{width:35px;height:35px;min-width:35px;border-radius:10px;font-size:20px}
+ .pill{font-size:10px;padding:7px 10px}
+ .race-layout{grid-template-columns:minmax(0,1fr) 168px;gap:7px}
+ .stage,.leaderboard{border-radius:13px}
+ .controls{height:48px;gap:10px}.controls .primary-btn{min-height:36px;padding:8px 17px;font-size:13px}.controls .secondary-btn{min-height:36px;padding:8px 12px;font-size:12px}
+ .race-state{gap:8px;max-width:60%;}.race-state b{font-size:12px;line-height:1.1}.race-state small{font-size:9px;margin-top:3px;max-width:45vw}
+ .board-title{padding:7px 10px;gap:6px}.board-title h2{font-size:15px}.board-title>span:first-child{font-size:17px}
+ .rank-list{padding:4px;gap:2px}.rank-row{padding:1px 5px;gap:5px;border-radius:7px}
+ .rank-no{width:21px;height:21px;font-size:13px}.rank-identity b{font-size:18px;line-height:1}.rank-identity small{font-size:8px;margin-bottom:1px;line-height:1}
+ .rank-change{width:9px;font-size:8px}.rank-change.finish-check{font-size:11px}
+ .board-foot{padding:4px 8px;font-size:8px}
+ .stage-top{top:9px;left:11px;right:11px;flex-direction:row;align-items:center;gap:8px}.stage-badge{font-size:10px;padding:6px 10px}.timer{font-size:19px;padding:5px 10px;border-radius:10px}.timer small{font-size:11px}
+ .leader-spotlight{top:49px;left:11px;font-size:11px;padding:6px 10px;max-width:calc(100% - 170px)}
+ .finish-tally{top:49px;right:11px;font-size:10px;padding:6px 9px}
+ .race-progress{bottom:13px;left:21px;right:21px;height:8px}#progressStar{font-size:22px}
+ .course-route{bottom:30px;left:11px;right:auto;gap:2px;padding:3px 5px;justify-content:flex-start}.course-stop{font-size:8px;padding:4px 6px}.course-stop+.course-stop:before{margin-right:5px}
+ .event-toast{bottom:67px;padding:7px 13px;font-size:11px}.follow-reset{bottom:64px;right:11px;font-size:10px;padding:8px 11px;min-height:32px}
+ .slow-motion{bottom:33px;right:11px;padding:6px 9px;font-size:10px}.slow-motion small{font-size:9px}
+ .race-moment{bottom:67px;font-size:clamp(13px,1.8vw,19px);padding:8px 17px;white-space:nowrap;max-width:90%;width:max-content}
+ .countdown{font-size:90px}.pause-notice{gap:9px}.pause-notice b{font-size:23px}.pause-notice span{font-size:11px}
+ .toast{bottom:62px;padding:10px 16px;font-size:11px}
+ dialog{max-height:94dvh}
+}
+
+@media(orientation:landscape) and (max-height:500px){
+ .app{padding-left:max(6px,env(safe-area-inset-left,0px));padding-right:max(6px,env(safe-area-inset-right,0px))}
+ .masthead{height:45px;gap:9px}.brand{gap:6px}.brand-star{display:none}.brand h1{font-size:clamp(18px,2.5vw,24px)}
+ .brand .eyebrow{font-size:7px;margin-top:2px;line-height:1;letter-spacing:1px}.brand-subtitle{font-size:9px;line-height:1;margin-top:2px}
+ .header-actions{gap:5px}.header-actions .icon-btn{width:33px;height:33px;min-width:33px;font-size:18px}.pill,.volume{display:none}
+ .race-layout{grid-template-columns:minmax(0,1fr) 138px;gap:5px}
+ .controls{height:43px;gap:8px}.control-buttons{gap:6px}.controls .primary-btn{font-size:12px;min-height:35px;padding:7px 13px;border-radius:10px}.controls .secondary-btn{font-size:11px;min-height:35px;padding:7px 10px;border-radius:10px}
+ .race-state{max-width:55%;gap:6px}.race-state b{font-size:10px;line-height:1.1}.race-state small{font-size:8px;max-width:42vw;margin-top:2px}.status-dot{width:5px;height:5px}
+ .board-title{padding:5px 7px;gap:4px}.board-title h2{font-size:12px;letter-spacing:-.3px}.board-title>span:first-child{font-size:14px}.live-dot{display:none}
+ .rank-list{padding:3px;gap:1px}.rank-row{border-radius:5px;gap:4px;padding:0 4px}
+ .rank-no{width:17px;height:17px;font-size:11px}.rank-identity{flex-direction:row;align-items:center;justify-content:space-between;gap:3px;line-height:1}
+ .rank-identity b{font-size:14px;line-height:1}.rank-identity small{font-size:7px;letter-spacing:-.5px;margin:0;line-height:1;white-space:nowrap}
+ .rank-change{width:7px;font-size:7px}.rank-change.finish-check{font-size:10px}.board-foot{padding:3px 6px;font-size:7px}
+ .stage-top{top:6px;left:8px;right:8px;gap:6px}.stage-badge{font-size:8px;padding:5px 8px}.timer{font-size:16px;padding:4px 8px;border-radius:8px}.timer small{font-size:9px}
+ .leader-spotlight{top:37px;left:8px;font-size:9px;padding:5px 8px;max-width:calc(100% - 135px);border-radius:9px}.finish-tally{top:37px;right:8px;font-size:8px;padding:5px 7px;border-radius:8px}
+ .race-progress{bottom:10px;left:17px;right:17px;height:6px}#progressStar{font-size:19px}
+ .course-route{bottom:23px;left:8px;right:auto;padding:2px 4px;border-radius:15px}.course-stop{font-size:7px;padding:3px 5px}.course-stop+.course-stop:before{display:none}
+ .slow-motion{bottom:26px;right:8px;padding:4px 7px;font-size:8px;border-radius:7px;letter-spacing:.4px}.slow-motion small{font-size:8px;margin-left:4px}
+ .event-toast{bottom:51px;font-size:9px;padding:6px 10px;max-width:75%}.follow-reset{bottom:49px;right:8px;min-height:30px;font-size:9px;padding:6px 9px}
+ .race-moment{bottom:53px;font-size:12px;padding:7px 12px;border-radius:10px}.countdown{font-size:70px}.loading{gap:8px}.loading p{font-size:11px}.spinner{width:26px;height:26px}
+ .toast{bottom:51px;max-width:90%;font-size:10px;padding:9px 13px}
+ .setup-dialog{padding:22px}.setup-grid{grid-template-columns:1.1fr 1fr;gap:18px}.settings-panel{border-top:0;padding-top:0}.dialog-heading h2{font-size:24px}.dialog-heading p{margin-bottom:14px}.setup-bottom{margin-top:14px;padding-top:14px}
+}
+
+@media(orientation:landscape) and (max-height:360px){
+ .masthead{height:42px}.controls{height:40px}.race-layout{grid-template-columns:minmax(0,1fr) 132px}
+ .race-state small{display:none}.race-state b{font-size:10px}.board-title{padding:4px 6px}.board-title h2{font-size:11px}.board-title>span:first-child{font-size:12px}.board-foot{padding:2px 5px;font-size:6px}
+ .rank-list{padding:2px;gap:1px}.rank-row{gap:3px;padding:0 3px}.rank-no{width:15px;height:15px;font-size:10px}.rank-identity b{font-size:12px}.rank-identity small{font-size:6.5px}.rank-change{width:6px;font-size:6px}
+ .stage-badge{font-size:7px}.leader-spotlight{font-size:8px}.course-route{padding:1px 3px}.course-stop{font-size:6px}.race-moment{font-size:10px;padding:6px 9px;bottom:48px}.event-toast{bottom:47px;font-size:8px}.follow-reset{bottom:44px}
+}
+
+.header-actions .icon-btn.fullscreen-toggle{width:auto;min-width:36px;padding-inline:10px;font-size:12px;white-space:nowrap}
+@media(orientation:landscape) and (max-height:500px){.header-actions .icon-btn.fullscreen-toggle{font-size:10px;padding-inline:7px;min-width:33px}.brand-subtitle{font-weight:400}}
