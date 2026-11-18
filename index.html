@@ -5,7 +5,7 @@
 <div class="app">
  <header class="masthead"><div class="brand"><span class="brand-star">✦</span><div><div class="festival-heading"><span class="festival-name">제24회 터누림제</span><span class="lottery-subtitle">행운권 추첨</span></div><h1>창원사파고 <em>별빛레이스</em></h1></div><span class="brand-star small">✧</span></div><div class="header-actions"><span id="rosterBadge" class="pill">체험 명단 · 160명</span><button id="settingsBtn" class="icon-btn" title="참가자 설정" aria-label="참가자 설정">⚙</button><button id="soundBtn" class="icon-btn" title="소리 켜기/끄기" aria-label="소리 켜기/끄기" aria-pressed="false">♫</button><button id="fullscreenBtn" class="icon-btn fullscreen-toggle" title="전체 화면" aria-label="전체 화면">⛶ 전체 화면</button></div></header>
  <main class="race-layout">
-  <section id="stage" class="stage" aria-label="3D 경주 화면"><canvas id="world"></canvas><canvas id="labels"></canvas>
+  <section id="stage" class="stage" tabindex="0" aria-label="3D 경주 화면. 마우스 휠 또는 더하기, 빼기 키로 확대·축소"><canvas id="world"></canvas><canvas id="labels"></canvas>
    <div class="stage-top"><span id="phaseBadge" class="stage-badge">✦ 별빛 아래, 모두의 레이스</span><span class="timer"><span id="timeValue">00:00</span><small id="durationTotal"> / 01:00</small></span></div>
    <div id="leaderSpotlight" class="leader-spotlight">♛ 선두를 따라 달려요</div>
    <div id="finishTally" class="finish-tally" hidden></div>
@@ -17,7 +17,7 @@
    <div id="pausedNotice" class="pause-notice" hidden><b>잠시 쉬어갈게요</b><span>이어서 달리기를 눌러주세요</span></div>
    <div id="eventToast" class="event-toast" aria-live="off"></div>
    <button id="leadBtn" class="follow-reset" hidden>↗ 선두 보기</button>
-   <div class="camera-controls" role="group" aria-label="카메라 시점"><button type="button" data-race-camera="rear" aria-pressed="false" title="뒤에서 결승선을 향해 바라보기">후방</button><button type="button" data-race-camera="side" aria-pressed="true" title="대각선 위에서 전체 경주 바라보기">측면</button><button type="button" data-race-camera="leader" aria-pressed="false" title="현재 선두를 가까이 따라가기">선두 근접</button></div><div class="race-progress"><div id="progressFill"></div><span id="progressStar">★</span></div>
+   <div class="camera-controls"><div class="camera-modes" role="group" aria-label="카메라 시점"><button type="button" data-race-camera="rear" aria-pressed="false" title="뒤에서 결승선을 향해 바라보기">후방</button><button type="button" data-race-camera="side" aria-pressed="true" title="정중앙 측면 · 드래그 또는 방향키로 각도 조정 · Home으로 복원">측면</button><button type="button" data-race-camera="leader" aria-pressed="false" title="선두 진행 거리를 기준으로 트랙을 가까이 보기">선두 근접</button></div></div><div class="race-progress"><div id="progressFill"></div><span id="progressStar">★</span></div>
   </section>
   <aside class="leaderboard"><div class="board-title"><span>🏆</span><h2>실시간 순위</h2><span class="live-dot"></span></div><div id="rankList" class="rank-list"></div><div class="board-foot"><span id="participantCount">160명 참가</span><span>TOP 10</span></div></aside>
  </main>

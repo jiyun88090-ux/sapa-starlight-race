@@ -1,4 +1,20 @@
+import {FINISH_SCENARIOS,stageFinish,storyPosition} from './finish-scenarios.js';
 export const DURATION = 60;
+export const SLOW_MOTION_SECONDS = 3;
+export const SLOW_MOTION_SPEED = .5;
+// Scene seconds per real second, independent of the selected race duration.
+// Reserve the last three real seconds and ease into their fixed speed over
+// the preceding second. Integrating that speed keeps both joins continuous.
+export function raceSceneTime(seconds,duration=DURATION){
+ const slowStart=duration-SLOW_MOTION_SECONDS,transitionStart=slowStart-1;
+ const slowSceneStart=DURATION-SLOW_MOTION_SECONDS*SLOW_MOTION_SPEED;
+ const speed=(slowSceneStart-SLOW_MOTION_SPEED/2)/(slowStart-.5);
+ const wall=Math.max(0,seconds);
+ if(wall<=transitionStart)return wall*speed;
+ if(wall<slowStart){const u=wall-transitionStart;return transitionStart*speed+speed*u+(SLOW_MOTION_SPEED-speed)*u*u/2;}
+ return Math.min(DURATION,slowSceneStart+(wall-slowStart)*SLOW_MOTION_SPEED);
+}
+export function isRaceSlowMotion(seconds,duration=DURATION){return seconds>=duration-SLOW_MOTION_SECONDS&&seconds<duration;}
 export const REVEAL_AT = 45;
 export const FINISH = 560;
 export const EVENT_NAMES = {banana:'바나나에 미끌!',hurdle:'허들 점프!',tumble:'우당탕! 다시 출발!',pit:'앗, 함정이다!',dig:'비밀 함정 만들기!',boost:'별빛 부스터!',spin:'회전 막대에 휘청!',turntable:'회전판에 빙글!',waterballoon:'물풍선에 갇혔다!',dodge:'옆으로 쏙! 장애물 회피!'};
@@ -57,6 +73,7 @@ const finishGap=rank=>rank<=9?rank*4.5:9*4.5+34*(1-Math.exp(-(rank-9)/15));
 function finishPosition(r,t){
  const straight=FINISH+(t-r.finish)*FINISH_SPEED;
  if(!r.finishDrama||t>=FINAL_STRAIGHT_AT)return straight;
+ if(r.finishDrama.keyframes)return storyPosition(r.finishDrama,t);
  const u=Math.max(0,Math.min(1,(t-FINAL_SEQUENCE_AT)/(FINAL_STRAIGHT_AT-FINAL_SEQUENCE_AT))),u2=u*u,u3=u2*u;
  const h=FINAL_STRAIGHT_AT-FINAL_SEQUENCE_AT,start=r.finishDrama.start,end=FINISH+(FINAL_STRAIGHT_AT-r.finish)*FINISH_SPEED;
  // Positive monotone Hermite curves: one runner accelerates while the former
@@ -64,6 +81,7 @@ function finishPosition(r,t){
  return (2*u3-3*u2+1)*start+(u3-2*u2+u)*h*r.finishDrama.entrySpeed+(-2*u3+3*u2)*end+(u3-u2)*h*FINISH_SPEED;
 }
 function rawPosition(r,t){
+ if(r.finishDrama?.keyframes&&t>=r.finishDrama.at)return finishPosition(r,t);
  let j=0;while(j<r.points.length-2&&t>r.points[j+1].t)j++;
  const a=r.points[j],b=r.points[j+1];
  let x=mix(a.x,b.x,Math.max(0,Math.min(1,(t-a.t)/(b.t-a.t))));
@@ -230,11 +248,12 @@ function bakeSharedCourse(runners,obstacles,random){
   r.events.sort((a,b)=>a.at-b.at);
  }
 }
-export function makePlan(participants, {seed=secureInt(4294967295),order=shuffle(participants.map(p=>p.id))}={}) {
+export function makePlan(participants, {seed=secureInt(4294967295),order=shuffle(participants.map(p=>p.id)),finishScenario}={}) {
   if(participants.length<3)throw Error('참가자는 3명 이상이어야 합니다.');
   if(new Set(participants.map(p=>p.id)).size!==participants.length || order.length!==participants.length || new Set(order).size!==participants.length || participants.some(p=>!order.includes(p.id)))throw Error('참가 명단과 순위가 일치하지 않습니다.');
   // Narrative choice is independent of the outcome and the animation seed.
-  const dramaticFinish=secureInt(100)<80;
+  const dramaticFinish=finishScenario?true:secureInt(100)<80;
+  const story=finishScenario?FINISH_SCENARIOS.find(s=>s.id===finishScenario):dramaticFinish?FINISH_SCENARIOS[secureInt(FINISH_SCENARIOS.length+1)]:null;
   const random=rng(seed),n=participants.length,lanes=Math.min(24,Math.max(6,Math.ceil(Math.sqrt(n)*.85)));
   const ranks=new Map(order.map((id,i)=>[id,i]));
   const shuffled=shuffle(participants, max=>Math.floor(random()*max));
@@ -279,7 +298,9 @@ export function makePlan(participants, {seed=secureInt(4294967295),order=shuffle
   const winner=runners.find(r=>r.rank===0);
   winner.events.push({at:55.1,duration:1.3,type:'boost',amplitude:3.2,featured:true});
   const challenger=runners.find(r=>r.rank===1);
-  if(dramaticFinish){
+  if(story){
+    stageFinish(runners,story,(r,t)=>FINISH+(t-r.finish)*FINISH_SPEED);
+  }else if(dramaticFinish){
     challenger.events.push({at:58.82,duration:.16,type:'tumble',amplitude:0,featured:true,cinematicOnly:true});
     winner.events.push({at:58.82,duration:.27,type:'boost',amplitude:0,featured:true,cinematicOnly:true});
   }else winner.events.push({at:58.84,duration:.26,type:'boost',amplitude:0,featured:true,cinematicOnly:true});
@@ -312,17 +333,21 @@ export function makePlan(participants, {seed=secureInt(4294967295),order=shuffle
     {at:50,duration:1.6,title:'마지막 승부, 아직 끝나지 않았어!',kind:'sprint',runnerId:order[Math.min(1,n-1) ]},
     {at:53.6,duration:1.5,title:'마지막 직선, 전력 질주!',kind:'sprint',runnerId:winner.id},
     {at:55.4,duration:.7,title:'결승선 앞, 끝까지 달려!',kind:'finish',runnerId:dramaticFinish?challenger.id:winner.id},
-    {at:57.78,duration:.9,title:dramaticFinish?'휘청한 순간, 마지막 역전!':'추격을 뿌리친 선두! 끝까지!',kind:dramaticFinish?'comeback':'defend',runnerId:winner.id}
+    {at:story?54.9:57.78,duration:story?3:.9,title:story?story.title:dramaticFinish?'휘청한 순간, 마지막 역전!':'추격을 뿌리친 선두! 끝까지!',kind:dramaticFinish?'comeback':'defend',runnerId:winner.id}
   ];
-  const finishEvent={kind:dramaticFinish?'overtake':'defend',at:57.78,duration:.9,overtakeAt:dramaticFinish?57.87:null,winnerId:winner.id,challengerId:challenger.id,leaderBeforeId:dramaticFinish?challenger.id:winner.id,crossings:runners.filter(r=>r.rank<5).sort((a,b)=>a.rank-b.rank).map(r=>({runnerId:r.id,rank:r.rank,at:56+(r.finish-58)/.5}))};
+  const leaderBefore=story?runners.find(r=>r.rank===story.order[0])??challenger:dramaticFinish?challenger:winner;
+  let overtakeAt=null;
+  // Record the final lead change on the display clock, for every story.
+  if(dramaticFinish){let lastOther=54;for(let step=0;step<=1200;step++){const at=54+step*.005,time=cinemaTime(at);if(runners.some(r=>r!==winner&&positionAt(r,time)>positionAt(winner,time)))lastOther=at;}overtakeAt=Math.min(60,lastOther+.005);}
+  const finishEvent={kind:dramaticFinish?'overtake':'defend',at:story?54.9:57.78,duration:story?3:.9,overtakeAt,winnerId:winner.id,challengerId:challenger.id,leaderBeforeId:leaderBefore.id,crossings:runners.filter(r=>r.rank<5).sort((a,b)=>a.rank-b.rank).map(r=>({runnerId:r.id,rank:r.rank,at:56+(r.finish-58)/.5}))};
   const startGrid={columns:gridColumns,rows:gridRows,columnSpacing:3.5,rowSpacing:3.5,startLine:0,slots:runners.map(r=>({id:r.id,x:r.gridX,z:r.gridZ}))};
-  return {runners,obstacles,beats,dramaticFinish,finishEvent,startGrid,order:[...order],seed,lanes,count:n,duration:DURATION};
+  return {runners,obstacles,beats,dramaticFinish,finishScenario:story?.id??(dramaticFinish?'overtake':'defend'),finishEvent,startGrid,order:[...order],seed,lanes,count:n,duration:DURATION};
 }
 export function positionAt(r,t){
  // On the 60-second timeline the first five cross at 58.2, 58.56,
  // 58.92, 59.28 and 59.64 seconds during the 0.5x finish.
  // They keep moving beyond the stripe while the remaining field approaches.
- if(t>=FINAL_SEQUENCE_AT)return finishPosition(r,t);
+ if(t>=(r.finishDrama?.at??FINAL_SEQUENCE_AT))return finishPosition(r,t);
  const rate=r.sampleRate||20,s=Math.max(0,Math.min(60,t))*rate,i=Math.min(r.samples.length-2,Math.floor(s));return mix(r.samples[i],r.samples[i+1],Math.min(1,s-i));
 }
 export function eventAt(r,t){const active=r.events.filter(e=>t>=e.at&&t<e.at+e.duration);return active.find(e=>e.cinematicOnly)||active.find(e=>e.holdDuration)||active.find(e=>e.type==='hurdle')||active.find(e=>e.type==='dodge')||active[0]||null;}

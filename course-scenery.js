@@ -4,6 +4,7 @@ import * as THREE from './vendor/three.module.js';
 // have volume, so a side camera sees their sides instead of rotating cutouts.
 const TAU=Math.PI*2;
 const lerp=THREE.MathUtils.lerp;
+export const TERRAIN_HALF_WIDTH=14.5+(125-14.5)*.5;
 const colourCache=new Map();
 const finishPalettes=[
  ['#7fbfac','#a5dcc9','#c6ead8'],
@@ -20,6 +21,8 @@ function sceneryColour(stage,value){
  colourCache.set(key,colour);return colour;
 }
 function random(seed){let n=seed;return()=>{n=(1664525*n+1013904223)>>>0;return n/4294967296;};}
+// Halve the open space beyond the left road edge; retain each prop's dimensions.
+function vergeX(side,distance){return side<0?-(14.5+(distance-14.5)*.5):distance;}
 function roundedBox(){
  const g=new THREE.BoxGeometry(1,1,1,4,4,4),p=g.attributes.position,core=new THREE.Vector3(),v=new THREE.Vector3();
  for(let i=0;i<p.count;i++){v.fromBufferAttribute(p,i);core.set(THREE.MathUtils.clamp(v.x,-.35,.35),THREE.MathUtils.clamp(v.y,-.35,.35),THREE.MathUtils.clamp(v.z,-.35,.35));v.sub(core).normalize().multiplyScalar(.15).add(core);p.setXYZ(i,v.x,v.y,v.z);}
@@ -42,6 +45,15 @@ export class CourseScenery{
  }
 
  add(stage,shape,color,x,y,z,sx,sy,sz,rotation=0,kind='solid'){
+  if(this.distantScenery){
+   // The broad hills and skyline must leave room for the painted background.
+   sx*=.5;sy*=.5;y*=.5;
+   // Keep large hills in the outer band so they cannot swallow roadside houses.
+   if(shape==='ball')sx=Math.min(sx,(TERRAIN_HALF_WIDTH-14.5)*.18);
+   const radius=shape==='round'?sx*.5:sx;
+   const limit=Math.max(14.5,TERRAIN_HALF_WIDTH-radius);
+   x=THREE.MathUtils.clamp(x,-limit,limit);
+  }
   const layer=this.layers[stage],key=`${shape}:${color}:${kind}`;
   if(!layer.batches.has(key)){
    let material;
@@ -81,13 +93,15 @@ export class CourseScenery{
     if(stage===3)this.finishEdge(stage,side,z+jitter,rand);
    }
   }
+  this.distantScenery=true;
   for(const side of [-1,1])for(let z=-90;z<850;z+=115){
-   const x=side*(side<0?106:84),sz=62+rand()*18;
+   const x=vergeX(side,side<0?106:84),sz=62+rand()*18;
    if(stage===0){this.ball(stage,'#73866f',x,0,z,43,12+rand()*8,sz);this.ball(stage,'#8a9683',x+side*32,4,z+41,46,18,sz);}
    if(stage===1){this.ball(stage,'#9b9ab0',x+side*20,0,z,40,10,sz);for(let k=0;k<3;k++){const height=11+rand()*14;this.add(stage,'round',['#a2a7b7','#9d9caf','#b8a8ad'][k],x+side*k*11,height/2,z+k*21,10,height,17);}}
    if(stage===2){this.cloud(stage,x,5,z,8,'#817895');this.floatingIsland(stage,x-side*20,6+rand()*8,z+25,rand);}
    if(stage===3){const palette=finishPalette(x,z);this.cloud(stage,x,3,z,13,palette[1]);this.cloud(stage,x+side*25,11,z+45,16,finishPalette(x,z+54)[2]);}
   }
+  this.distantScenery=false;
  }
 
  meadowEdge(stage,side,z,rand){
@@ -100,7 +114,7 @@ export class CourseScenery{
    this.ball(stage,'#a3a874',x+.35,.58,zz+.15,.48,.35,.45);
    if(j!==1)this.flowers(stage,x-side*.8,zz+1,rand,false);
   }
-  const x=side*(side<0?84+rand()*10:30+rand()*7);
+  const x=vergeX(side,side<0?84+rand()*10:30+rand()*7);
   this.tree(stage,x,z+2,.85+rand()*.4,rand,'green');
   if(Math.round(z/27)%2===0)this.tree(stage,x+side*7,z+11,.65+rand()*.3,rand,'green');
  }
@@ -137,12 +151,12 @@ export class CourseScenery{
   this.flowers(stage,px,z+8,rand,false);
   const block=Math.round(z/27);
   if(block%2===0){
-   const bx=side*(side<0?88:35);
+   const bx=vergeX(side,side<0?88:35);
    this.building(stage,side,bx,z,.92+rand()*.22,Math.abs(block)%3,rand);
    this.building(stage,side,bx+side*(5+rand()*2),z+17,.78+rand()*.2,(Math.abs(block)+1)%3,rand);
-   this.streetlamp(stage,side*(side<0?80:25),z-9,1);
-   if(block%4===0)this.car(stage,side*(side<0?82:26),z+16,side,rand);
-  }else this.tree(stage,side*(side<0?84:30),z,.72+rand()*.15,rand,'green');
+   this.streetlamp(stage,vergeX(side,side<0?80:25),z-9,1);
+   if(block%4===0)this.car(stage,vergeX(side,side<0?82:26),z+16,side,rand);
+  }else this.tree(stage,vergeX(side,side<0?84:30),z,.72+rand()*.15,rand,'green');
  }
 
  building(stage,side,x,z,scale,tone,rand){
@@ -191,7 +205,7 @@ export class CourseScenery{
    const x=side*(18.2+rand()*4),zz=z-7+i*7,height=.55+rand()*.55;
    this.crystals(stage,x,zz,height,rand);
   }
-  if(Math.round(z/27)%2===0){const x=side*(side<0?84:32);this.crystals(stage,x,z,2.6+rand()*1.3,rand);this.floatingIsland(stage,x+side*8,4.5,z+10,rand);}
+  if(Math.round(z/27)%2===0){const x=vergeX(side,side<0?84:32);this.crystals(stage,x,z,2.6+rand()*1.3,rand);this.floatingIsland(stage,x+side*8,4.5,z+10,rand);}
  }
 
  crystals(stage,x,z,size,rand){
@@ -226,8 +240,8 @@ export class CourseScenery{
   this.cloud(stage,side*20,.18,z+3,2.2,palette[2]);
   for(let i=0;i<3;i++)this.flowers(stage,side*(16.8+rand()*2),z-8+i*7,rand,true);
   const block=Math.round(z/27);
-  if(block%2===0){this.tree(stage,side*(side<0?84:31),z,1+rand()*.2,rand,'bloom');this.streetlamp(stage,side*(side<0?80:25),z-9,1.05);}
-  else this.cloud(stage,side*(side<0?84:34),1.6,z,5.5,palette[1]);
+  if(block%2===0){this.tree(stage,vergeX(side,side<0?84:31),z,1+rand()*.2,rand,'bloom');this.streetlamp(stage,vergeX(side,side<0?80:25),z-9,1.05);}
+  else this.cloud(stage,vergeX(side,side<0?84:34),1.6,z,5.5,palette[1]);
  }
 
  update({stage=0,previous=0,mix=1}={}){

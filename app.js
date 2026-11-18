@@ -1,7 +1,7 @@
 import {showAwards} from './results-reveal.js';
 import {tidySetup,syncSetupRoom} from './setup-flow.js';
 import {currentRoom,establishRoom,forgetRoom} from './race-room.js';
-import {parseRoster,parseStudentId,demoRoster,manualRoster,maxClassSize,prepareDraw,makePlan,rankingAt,positionAt,eventAt,identity,cinemaTime,EVENT_NAMES} from './engine.js';
+import {parseRoster,parseStudentId,demoRoster,manualRoster,maxClassSize,prepareDraw,makePlan,rankingAt,positionAt,eventAt,identity,raceSceneTime,isRaceSlowMotion,EVENT_NAMES} from './engine.js';
 import {RaceWorld,COURSES} from './world-cinematic.js';
 import {mountModes} from './roster-modes.js';
 import {RaceAudio} from './audio.js';
@@ -13,12 +13,49 @@ const $=id=>document.getElementById(id),MAX_PARTICIPANTS=1200;
 let cameraMode='side',preferredCameraMode='side';
 function selectCamera(mode,automatic=false){
  if(!automatic)preferredCameraMode=mode;
- cameraMode=mode;world?.setCameraMode(mode);
+ cameraMode=mode;world?.setCameraMode(mode);$('stage').dataset.camera=mode;
  document.querySelectorAll('[data-race-camera]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.raceCamera===mode)));
  if(mode==='leader'){follow=null;$('leadBtn').hidden=true;if(plan)updateRanks();}
 }
 document.querySelectorAll('[data-race-camera]').forEach(button=>button.addEventListener('click',()=>selectCamera(button.dataset.raceCamera)));
 const audio=new RaceAudio();let roster=[],rosterName='참가 명단',activeRoster=manualRoster(28),winnerCount=3,mode='manual',manualCount=28,fullDraw=[],plan,world,state='idle',elapsed=0,countElapsed=0,introElapsed=0,characterColors=true,pausedFrom='racing',follow=null,ranking=[],lastFrame=0,lastUi=-1,lastToast=0,shownEvents=new Set(),revealed=false,finishShown=false,quality='auto',workbook=null,pendingRoster=null,previousRanks=new Map(),performanceSamples=[];
+let cameraDrag=null,suppressStageClick=false;
+const stage=$('stage');
+stage.dataset.camera='side';
+stage.addEventListener('wheel',event=>{
+ if(!world||event.ctrlKey||event.target.closest('button,input,select,textarea')||$('setupDialog').open||$('resultDialog').open||!event.deltaY)return;
+ event.preventDefault();
+ const unit=event.deltaMode===1?16:event.deltaMode===2?stage.clientHeight:1;
+ const delta=Math.max(-240,Math.min(240,event.deltaY*unit));
+ world.setViewZoom(world.viewZoom*Math.exp(-delta*.0015));
+},{passive:false});
+stage.addEventListener('pointerdown',event=>{
+ if(cameraMode!=='side'||!world||!event.isPrimary||event.button!==0||event.target.closest('button,input,select,textarea,dialog,.camera-controls'))return;
+ cameraDrag={id:event.pointerId,x:event.clientX,yaw:world.sideYaw,moved:false};
+ stage.setPointerCapture(event.pointerId);
+});
+stage.addEventListener('pointermove',event=>{
+ if(!cameraDrag||event.pointerId!==cameraDrag.id)return;
+ const dx=event.clientX-cameraDrag.x;
+ if(Math.abs(dx)>5)cameraDrag.moved=true;
+ if(!cameraDrag.moved)return;
+ follow=null;$('leadBtn').hidden=true;stage.classList.add('camera-dragging');
+ world.setSideYaw(cameraDrag.yaw-dx/Math.max(240,stage.clientWidth)*Math.PI*.8);
+});
+function endCameraDrag(event){
+ if(!cameraDrag||event.pointerId!==cameraDrag.id)return;
+ suppressStageClick=cameraDrag.moved&&event.type==='pointerup';cameraDrag=null;stage.classList.remove('camera-dragging');
+ if(stage.hasPointerCapture(event.pointerId))stage.releasePointerCapture(event.pointerId);
+}
+for(const type of ['pointerup','pointercancel','lostpointercapture'])stage.addEventListener(type,endCameraDrag);
+stage.addEventListener('click',event=>{if(suppressStageClick){suppressStageClick=false;event.stopImmediatePropagation();}},true);
+stage.addEventListener('keydown',event=>{
+ if(cameraMode!=='side'||!world||event.target.closest('button,input,select,textarea')||event.ctrlKey||event.metaKey||event.altKey)return;
+ if(['ArrowLeft','ArrowRight','Home'].includes(event.key)){
+  event.preventDefault();follow=null;$('leadBtn').hidden=true;
+  world.setSideYaw(event.key==='Home'?0:world.sideYaw+(event.key==='ArrowLeft'?.06:-.06));
+ }
+});
 let settings;try{settings=JSON.parse(localStorage.getItem('starlight-settings')||'null');if(settings?.roster){const p=parseRoster(settings.roster);if(p.participants.length>=3&&p.participants.length<=MAX_PARTICIPANTS){roster=p.participants;activeRoster=[...roster];rosterName=settings.name||'저장된 명단';}}if(settings?.winners)winnerCount=settings.winners;quality=settings?.quality||'auto';if(settings?.volume!==undefined){audio.setVolume(settings.volume);$('volume').value=Math.round(settings.volume*100);}if(settings?.muted){audio.muted=true;$('soundBtn').textContent='♪';$('soundBtn').setAttribute('aria-pressed','true');}}catch{}
 characterColors=settings?.characterColors!==false;
 let raceDuration=Number.isInteger(settings?.raceDuration)&&settings.raceDuration>=10&&settings.raceDuration<=300?settings.raceDuration:60;
@@ -30,7 +67,8 @@ function syncDurationDraft(){
 $('durationSelect').addEventListener('change',()=>{$('customDurationField').hidden=$('durationSelect').value!=='custom';});
 syncDurationDraft();
 const racerIntro=new RacerIntro({onSkip:()=>{if(state==='intro'||(state==='paused'&&pausedFrom==='intro')){if(state==='paused')audio.unlock().catch(()=>{});beginCountdown();}},onTogglePause:()=>state==='paused'?resume():pause()});
-function sceneTime(){return elapsed<=60?cinemaTime(elapsed):elapsed;}
+function sceneTime(){return elapsed<=60?raceSceneTime(elapsed*raceDuration/60,raceDuration):elapsed;}
+function slowMotion(){return isRaceSlowMotion(elapsed*raceDuration/60,raceDuration);}
 function racePhase(){return state==='paused'?pausedFrom:state;}
 function preRace(){return ['idle','intro','countdown'].includes(racePhase());}
 function syncCharacterColors(){world?.setColorEnabled(characterColors);racerIntro.setTinted(characterColors);setPortraitTintEnabled(characterColors);}
@@ -56,7 +94,7 @@ function updateRosterUi(){
 }
 function setupPlan(){const draw=prepareDraw(activeRoster,mode,winnerCount);fullDraw=draw.all;plan=makePlan(draw.cast,{order:draw.order});plan.eligibleCount=activeRoster.length;plan.classLimit=draw.classLimit;plan.runners.forEach(r=>{r.colorVariant=Math.floor(r.index/8)%8;});ranking=rankingAt(plan,0);world.setQuality(quality,plan.count);world.setColorEnabled(characterColors);world.setPlan(plan);selectCamera(preferredCameraMode);follow=null;$('leadBtn').hidden=true;previousRanks.clear();updateRanks(true);$('participantCount').textContent=`${plan.count}명 레이스`;}
 function updateRanks(force=false){if(!plan)return;const reveal=false;const list=$('rankList');if(force||list.children.length!==Math.min(10,ranking.length)){list.replaceChildren();ranking.slice(0,10).forEach(()=>{const button=document.createElement('button');button.className='rank-row';button.innerHTML='<span class="rank-no"></span><span class="rank-identity"><small></small><b></b></span><span class="rank-change"></span>';button.addEventListener('click',()=>{if(state==='idle')return;follow=button.dataset.id;$('leadBtn').hidden=false;updateRanks();});list.append(button);});}
- ranking.slice(0,10).forEach((r,i)=>{const row=list.children[i];row.dataset.id=r.id;row.classList.toggle('selected',follow===r.id);row.querySelector('.rank-no').textContent=i+1;const small=row.querySelector('small');small.textContent=reveal&&r.grade?`${r.grade}학년 ${r.classroom}반`:'';small.hidden=!reveal||!r.grade;row.querySelector('b').textContent=`${String(reveal?r.number:(r.displayNumber??r.number)).padStart(2,'0')}번`;const crossed=elapsed>=56&&sceneTime()>=r.finish;row.classList.toggle('crossed',crossed);const prev=previousRanks.get(r.id),delta=prev===undefined?0:prev-i;const arrow=row.querySelector('.rank-change');arrow.className='rank-change'+(delta>0?' up':delta<0?' down':'');arrow.classList.toggle('finish-check',crossed);arrow.textContent=crossed?'✓':delta>0?'▲':delta<0?'▼':'·';row.setAttribute('aria-label',`${i+1}위 ${identity(r,reveal)} 따라가기`);});previousRanks=new Map(ranking.map((r,i)=>[r.id,i]));}
+ ranking.slice(0,10).forEach((r,i)=>{const row=list.children[i];row.dataset.id=r.id;row.classList.toggle('selected',follow===r.id);row.querySelector('.rank-no').textContent=i+1;const small=row.querySelector('small');small.textContent=reveal&&r.grade?`${r.grade}학년 ${r.classroom}반`:'';small.hidden=!reveal||!r.grade;row.querySelector('b').textContent=`${String(reveal?r.number:(r.displayNumber??r.number)).padStart(2,'0')}번`;const crossed=sceneTime()>=r.finish;row.classList.toggle('crossed',crossed);const prev=previousRanks.get(r.id),delta=prev===undefined?0:prev-i;const arrow=row.querySelector('.rank-change');arrow.className='rank-change'+(delta>0?' up':delta<0?' down':'');arrow.classList.toggle('finish-check',crossed);arrow.textContent=crossed?'✓':delta>0?'▲':delta<0?'▼':'·';row.setAttribute('aria-label',`${i+1}위 ${identity(r,reveal)} 따라가기`);});previousRanks=new Map(ranking.map((r,i)=>[r.id,i]));}
 function showSetup(){if(['racing','arrivals','intro','countdown'].includes(state))pause();updateRosterUi();syncDurationDraft();syncSetupRoom();$('setupError').textContent='';if(!$('setupDialog').open)$('setupDialog').showModal();}
 function applySettings(){
  if(modeUi.mode==='classes'&&(modeUi.selectedClasses>0||enrollmentUi.students().length<3)){const error=modeUi.validateClasses();if(error){$('setupError').textContent=error;return false;}}
@@ -100,8 +138,8 @@ function showRaceMoments(){
  const active=!preRace();
  const time=sceneTime(),front=[...plan.runners].sort((a,b)=>a.rank-b.rank);
  const crossed=front.filter(r=>time>=r.finish),recent=[...crossed].reverse().find(r=>time-r.finish<.17);
- const beat=(plan.beats||[]).find(b=>elapsed>=b.at&&elapsed<b.at+b.duration);
- $('finishTally').hidden=!active||elapsed<55;
+ const beat=(plan.beats||[]).find(b=>time>=b.at&&time<b.at+b.duration);
+ $('finishTally').hidden=!active||time<55;
  $('finishTally').textContent=`결승 통과 ${crossed.length} / ${front.length}`;
  const title=active?(recent?`${identity(recent,false)} · ${recent.rank+1}위 통과`:beat?.title):'';
  $('raceMoment').textContent=title||'';$('raceMoment').classList.toggle('visible',!!title);
@@ -112,27 +150,27 @@ function showRaceMoments(){
  }
 }
 function drawFrame(now){requestAnimationFrame(drawFrame);const dt=lastFrame?Math.min((now-lastFrame)/1000,.5):0;lastFrame=now;if(!world||!plan)return;
- const prevElapsed=elapsed;
+ const prevTime=sceneTime();
  if(state==='intro'){introElapsed+=dt;if(racerIntro.update(introElapsed))beginCountdown();}
  else if(state==='countdown'){const prev=Math.ceil(3-countElapsed);countElapsed+=dt;const cur=Math.ceil(3-countElapsed);if(cur!==prev&&cur>0){$('countdown').textContent=cur;audio.effect('count');}if(countElapsed>=3){state='racing';elapsed=0;lastUi=-1;$('countdown').hidden=true;audio.effect('go');audio.start();$('statusTitle').textContent='별빛레이스 진행 중';$('statusDesc').textContent='순위표나 캐릭터 번호를 누르면 따라갈 수 있어요.';}}
  else if(state==='racing'){elapsed=Math.min(60,elapsed+dt*60/raceDuration);if(elapsed>=60){state='arrivals';selectCamera('side',true);$('statusTitle').textContent='마지막 참가자까지, 결승선으로!';} audio.update(elapsed);}
  if(state==='arrivals'){elapsed+=dt*1.5;if(sceneTime()>=Math.max(...plan.runners.map(r=>r.finish))+.2)finish();}
- if(state==='racing'&&prevElapsed<51&&elapsed>=51)selectCamera('leader',true);
+ if(state==='racing'&&prevTime<51&&sceneTime()>=51)selectCamera('leader',true);
  if(state==='finished'&&!finishShown){finishShown=true;setTimeout(()=>{if(state==='finished')showResults();},1200);}
- if(Math.abs(elapsed-lastUi)>.12||lastUi<0){ranking=rankingAt(plan,sceneTime());updateRanks();const seconds=Math.min(raceDuration,Math.floor(elapsed*raceDuration/60));$('timeValue').textContent=`${String(Math.floor(seconds/60)).padStart(2,'0')}:${String(seconds%60).padStart(2,'0')}`;$('timeValue').parentElement.classList.toggle('urgent',elapsed>=50&&elapsed<60);$('progressFill').style.width=`${Math.min(100,elapsed/60*100)}%`;$('progressStar').style.left=`${Math.min(100,elapsed/60*100)}%`;
+ if(Math.abs(elapsed-lastUi)>.12*60/raceDuration||lastUi<0){ranking=rankingAt(plan,sceneTime());updateRanks();const seconds=Math.min(raceDuration,Math.floor(elapsed*raceDuration/60));$('timeValue').textContent=`${String(Math.floor(seconds/60)).padStart(2,'0')}:${String(seconds%60).padStart(2,'0')}`;$('timeValue').parentElement.classList.toggle('urgent',elapsed>=50&&elapsed<60);$('progressFill').style.width=`${Math.min(100,elapsed/60*100)}%`;$('progressStar').style.left=`${Math.min(100,elapsed/60*100)}%`;
   if(state==='arrivals')$('phaseBadge').textContent='모든 참가자가 결승선을 통과하고 있어요';
-  if(state==='racing')$('phaseBadge').textContent=elapsed>=56?'◷ 결승선 슬로모션':`${COURSES[Math.min(3,Math.floor(elapsed/15))].icon} ${COURSES[Math.min(3,Math.floor(elapsed/15))].name}${cameraMode==='leader'?' · 선두 근접 추적':''}`;
+  if(state==='racing')$('phaseBadge').textContent=slowMotion()?'◷ 결승선 슬로모션':`${COURSES[Math.min(3,Math.floor(sceneTime()/15))].icon} ${COURSES[Math.min(3,Math.floor(sceneTime()/15))].name}${cameraMode==='leader'?' · 선두 근접 추적':''}`;
   $('leaderSpotlight').textContent=`♛ 현재 1위 · ${identity(ranking[0],false)}`;
   $('leaderSpotlight').hidden=preRace();
-  $('slowMotionBadge').hidden=elapsed<56||elapsed>=60;
-  document.querySelectorAll('.course-stop').forEach((el,i)=>el.classList.toggle('active',i===Math.min(3,Math.floor(elapsed/15))));
+  $('slowMotionBadge').hidden=preRace()||!slowMotion();
+  document.querySelectorAll('.course-stop').forEach((el,i)=>el.classList.toggle('active',i===Math.min(3,Math.floor(sceneTime()/15))));
   lastUi=elapsed;
  }
- if(state==='racing'&&elapsed-lastToast>2.4&&elapsed<56){for(const r of ranking.slice(0,30)){const e=eventAt(r,sceneTime());if(e&&!shownEvents.has(`${r.id}-${e.at}`)){shownEvents.add(`${r.id}-${e.at}`);$('eventToast').textContent=`${identity(r,false)} · ${EVENT_NAMES[e.type]}`;$('eventToast').classList.add('visible');audio.effect(e.type);lastToast=elapsed;break;}}}if(elapsed-lastToast>1.8)$('eventToast').classList.remove('visible');
+ if(state==='racing'&&elapsed-lastToast>2.4&&!slowMotion()){for(const r of ranking.slice(0,30)){const e=eventAt(r,sceneTime());if(e&&!shownEvents.has(`${r.id}-${e.at}`)){shownEvents.add(`${r.id}-${e.at}`);$('eventToast').textContent=`${identity(r,false)} · ${EVENT_NAMES[e.type]}`;$('eventToast').classList.add('visible');audio.effect(e.type);lastToast=elapsed;break;}}}if(elapsed-lastToast>1.8)$('eventToast').classList.remove('visible');
  showRaceMoments();
  // One shared scene clock slows displacement, limbs, obstacles and camera together.
  let animTime=state==='paused'?(preRace()?0:sceneTime()):['idle','intro'].includes(state)?now/1000:sceneTime();
- world.update(elapsed,ranking,{cameraMode,phase:state,countdown:countElapsed,preparing:racePhase()==='countdown',idle:preRace(),follow:elapsed>=50?null:follow,raceTime:sceneTime(),animTime:state==='finished'?now/1000:animTime});
+ world.update(sceneTime(),ranking,{cameraMode,phase:state,countdown:countElapsed,preparing:racePhase()==='countdown',idle:preRace(),follow:sceneTime()>=50?null:follow,raceTime:sceneTime(),slowMotion:slowMotion(),animTime:state==='finished'?now/1000:animTime});
  if(state==='racing'){performanceSamples.push(dt);if(performanceSamples.length>120)performanceSamples.shift();if(quality==='auto'&&elapsed>5&&performanceSamples.length===120&&performanceSamples.reduce((a,b)=>a+b,0)/120>.043&&world.renderer.getPixelRatio()>1){world.setQuality('low',activeRoster.length);}}
 }
 function reportPending(parsed){pendingRoster=parsed;const n=parsed.participants.length;$('importReport').replaceChildren();const b=document.createElement('b');b.textContent=`유효 학번 ${n}명`;$('importReport').append(b);const lines=[];if(parsed.duplicates.length)lines.push(`중복 ${parsed.duplicates.length}건은 한 번만 등록합니다.`);if(parsed.invalid.length)lines.push(`형식이 맞지 않는 값 ${parsed.invalid.length}건 제외: ${parsed.invalid.slice(0,5).join(', ')}`);if(n>MAX_PARTICIPANTS)lines.push(`한 번에 ${MAX_PARTICIPANTS}명까지 등록할 수 있습니다.`);for(const line of lines){const d=document.createElement('div');d.textContent=line;$('importReport').append(d);}if(n>0){const d=document.createElement('div');d.textContent=parsed.participants.slice(0,4).map(p=>`${p.id} (${p.grade}-${p.classroom}-${p.number})`).join(' · ');$('importReport').append(d);}$('applyImport').hidden=false;$('applyImport').disabled=n<3||n>MAX_PARTICIPANTS;}

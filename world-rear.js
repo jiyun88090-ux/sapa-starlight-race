@@ -3,6 +3,15 @@ import {ObstacleCourse} from './obstacle-course.js';
 import {positionAt,eventAt,lateralAt,cameraPhase,identity,FINISH} from './engine.js';
 const TAU=Math.PI*2,lerp=THREE.MathUtils.lerp,clamp=THREE.MathUtils.clamp;
 const ACCENTS=['#e987a5','#72b9ff','#ffd15e','#c8a7ef','#ddaf87','#91d7b4','#f6b9cb','#94c8df'];
+export function renderedLateralAt(r,time,e=eventAt(r,time),anim=time){
+ let x=lateralAt(r,time);if(!e)return x;
+ const u=clamp((time-e.at)/e.duration,0,1),holding=time>=(e.contactAt??Infinity)&&time<(e.holdUntil??-Infinity);
+ if(!e.collisionManaged&&e.type!=='dodge'&&Number.isFinite(e.lateral))x=lerp(x,e.lateral,.8*Math.sin(Math.PI*u));
+ if(!e.collisionManaged&&e.type==='tumble')x+=Math.sin(u*TAU)*.8;
+ if(!e.collisionManaged&&['spin','turntable'].includes(e.type))x+=Math.sin(u*TAU)*1.3;
+ if(holding)x=lateralAt(r,time)+(e.type==='waterballoon'||e.collisionManaged?0:Math.sin(anim*6+r.phase)*.12);
+ return x;
+}
 function texture(w,h,draw){const c=document.createElement('canvas');c.width=w;c.height=h;draw(c.getContext('2d'),w,h);const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t;}
 export class RaceWorld{
  constructor(canvas,labels){this.canvas=canvas;this.labels=labels;this.ctx=labels.getContext('2d');this.renderer=new THREE.WebGLRenderer({canvas,antialias:true,powerPreference:'high-performance'});this.renderer.outputColorSpace=THREE.SRGBColorSpace;this.renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));this.scene=new THREE.Scene();this.camera=new THREE.PerspectiveCamera(45,1,.1,900);this.scene.add(new THREE.HemisphereLight(0xd2e3ff,0x7e424b,2));const key=new THREE.DirectionalLight(0xffe1a0,2.7);key.position.set(-15,25,-10);this.scene.add(key);this.temp=new THREE.Object3D();this.v=new THREE.Vector3();this.camTarget=new THREE.Vector3();this.camPos=new THREE.Vector3();this.lookTarget=new THREE.Vector3();this.sphere=new THREE.SphereGeometry(1,20,12);this.box=new THREE.BoxGeometry(1,1,1);this.cyl=new THREE.CylinderGeometry(1,1,1,24);this.cone=new THREE.ConeGeometry(1,1,16);this.materials=new Map();this.firstFrame=true;this.assetReady=false;this.projected=[];this.quality='auto';
@@ -43,12 +52,15 @@ export class RaceWorld{
   const behind=selected?focus-24:lerp(tp-24,lp-21,zoom),camX=selected?lateralAt(selected,time)*.65:Math.sin(time*.11)*.55;
   this.camPos.set(camX,lerp(19,7.5,zoom),behind);this.camTarget.set(selected?lateralAt(selected,time)*.65:0,lerp(1.8,2.1,zoom),focus+lerp(16,11,zoom));
   if(this.setCinematicCamera)this.setCinematicCamera(t,ranking,options);
-  const smoothing=this.firstFrame?1:.085;this.camera.position.lerp(this.camPos,smoothing);this.lookTarget.lerp(this.camTarget,smoothing);this.camera.lookAt(this.lookTarget);this.camera.updateMatrixWorld();this.firstFrame=false;
+  const smoothing=this.firstFrame?1:.085;this.camera.position.lerp(this.camPos,smoothing);this.lookTarget.lerp(this.camTarget,smoothing);
+  // Keep the focused runner centered even while the camera position eases behind.
+  if(this.cameraFocus){this.lookTarget.x=this.camTarget.x;this.lookTarget.z=this.camTarget.z;}
+  this.camera.lookAt(this.lookTarget);this.camera.updateMatrixWorld();this.firstFrame=false;
   const anim=options.animTime??t,topIds=new Set(ranking.slice(0,10).map(r=>r.id));this.projected=[];this.impacts=[];this.labelFrame++;
-  for(let i=0;i<this.plan.runners.length;i++){const r=this.plan.runners[i],progress=positionAt(r,time),e=idle?null:eventAt(r,time),u=e?clamp((time-e.at)/e.duration,0,1):0,holding=!!e&&time>=(e.contactAt??Infinity)&&time<(e.holdUntil??-Infinity),water=idle?null:r.events.find(q=>q.type==='waterballoon'&&time>=q.contactAt&&time<q.holdUntil+.35);let x=lateralAt(r,time),y=idle||holding?0:Math.abs(Math.sin(anim*16+r.phase))*.15,rot=0,frame=idle?1:Math.floor(anim*(e?.type==='boost'?18:12+launch*4)+r.phase)%4,action=0,scaleY=1;const h=r.type===2?3.8:3.5;
-   if(e){const influence=Math.sin(Math.PI*u);if(!e.collisionManaged&&e.type!=='dodge'&&Number.isFinite(e.lateral))x=lerp(x,e.lateral,.8*influence);if(e.type==='hurdle'){y+=influence*2.7;frame=0;action=1;}if(e.type==='banana'){frame=1;action=1;rot=-influence*.65;y+=influence*.25;}if(e.type==='tumble'){frame=1;action=1;rot=-u*TAU;y+=influence*.6;if(!e.collisionManaged)x+=Math.sin(u*TAU)*.8;}if(e.type==='pit'){frame=1;action=1;y-=influence*1.25;scaleY=1-influence*.25;}if(e.type==='dig'){frame=2;action=1;rot=Math.sin(anim*13)*.08;}if(e.type==='spin'||e.type==='turntable'){frame=1;action=1;rot=u*TAU*(e.type==='turntable'?2:1);if(!e.collisionManaged)x+=Math.sin(u*TAU)*1.3;y+=influence*.9;}if(e.type==='dodge')rot=influence*.14;if(e.type==='boost')rot=Math.sin(anim*12)*.035;}
-   if(e?.type==='waterballoon'&&holding){frame=0;action=1;y=.24+Math.sin(anim*3+r.phase)*.055;rot=Math.sin(anim*3+r.phase)*.035;x=lateralAt(r,time);}
-   if(holding&&e.type!=='waterballoon')x=lateralAt(r,time)+(e.collisionManaged?0:Math.sin(anim*6+r.phase)*.12);
+  for(let i=0;i<this.plan.runners.length;i++){const r=this.plan.runners[i],progress=positionAt(r,time),e=idle?null:eventAt(r,time),u=e?clamp((time-e.at)/e.duration,0,1):0,holding=!!e&&time>=(e.contactAt??Infinity)&&time<(e.holdUntil??-Infinity),water=idle?null:r.events.find(q=>q.type==='waterballoon'&&time>=q.contactAt&&time<q.holdUntil+.35);let x=renderedLateralAt(r,time,e,anim),y=idle||holding?0:Math.abs(Math.sin(anim*16+r.phase))*.15,rot=0,frame=idle?1:Math.floor(anim*(e?.type==='boost'?18:12+launch*4)+r.phase)%4,action=0,scaleY=1;const h=r.type===2?3.8:3.5;
+   if(e){const influence=Math.sin(Math.PI*u);if(e.type==='hurdle'){y+=influence*2.7;frame=0;action=1;}if(e.type==='banana'){frame=1;action=1;rot=-influence*.65;y+=influence*.25;}if(e.type==='tumble'){frame=1;action=1;rot=-u*TAU;y+=influence*.6;}if(e.type==='pit'){frame=1;action=1;y-=influence*1.25;scaleY=1-influence*.25;}if(e.type==='dig'){frame=2;action=1;rot=Math.sin(anim*13)*.08;}if(e.type==='spin'||e.type==='turntable'){frame=1;action=1;rot=u*TAU*(e.type==='turntable'?2:1);y+=influence*.9;}if(e.type==='dodge')rot=influence*.14;if(e.type==='boost')rot=Math.sin(anim*12)*.035;}
+   if(e?.type==='waterballoon'&&holding){frame=0;action=1;y=.24+Math.sin(anim*3+r.phase)*.055;rot=Math.sin(anim*3+r.phase)*.035;}
+
    if(idle&&preparing){scaleY=.94-ready*.08;rot=-.055-ready*.065;y=-(1-scaleY)*h*.42+Math.sin(ready*Math.PI*6)*.008;}
    else if(launch>0&&!e){rot=-.19*launch;scaleY=1-launch*.035;}
    if(!idle&&time>=r.finish){frame=3;action=1;y=Math.abs(Math.sin(anim*8+r.phase))*.3;}

@@ -1,7 +1,7 @@
 import * as THREE from './vendor/three.module.js';
-import {RaceWorld as RearWorld} from './world-rear.js';
+import {RaceWorld as RearWorld,renderedLateralAt} from './world-rear.js';
 import {positionAt,lateralAt,cinemaTime,FINISH} from './engine.js';
-import {CourseScenery} from './course-scenery.js';
+import {CourseScenery,TERRAIN_HALF_WIDTH} from './course-scenery.js';
 import {StartingGrid} from './starting-grid.js';
 import {getCharacterColor} from './character-colors.js';
 
@@ -22,7 +22,7 @@ function random(seed){let s=seed;return()=>{s=(1664525*s+1013904223)>>>0;return 
 export class RaceWorld extends RearWorld{
  constructor(world,labels){
   super(world,labels);
-  this.sideWeight=1;this.cameraMode='side';this.courseIndex=0;this.sceneTime=0;this.edgeMaterials=[];this.colorEnabled=true;
+  this.sideWeight=1;this.cameraMode='side';this.sideYaw=0;this.courseIndex=0;this.sceneTime=0;this.edgeMaterials=[];this.colorEnabled=true;this.viewZoom=1;
   this.courseBlend=-1;this.backgroundCanvas=canvas(1280,720);this.backgroundCtx=this.backgroundCanvas.getContext('2d');
   this.backgroundTexture=map(this.backgroundCanvas);this.backgroundTexture.wrapS=this.backgroundTexture.wrapT=THREE.ClampToEdgeWrapping;
   this.scene.fog=new THREE.Fog(COURSES[0].sky,95,260);
@@ -58,6 +58,12 @@ export class RaceWorld extends RearWorld{
 
  setColorEnabled(enabled){this.colorEnabled=!!enabled;if(this.actorMat?.uniforms.tintStrength)this.actorMat.uniforms.tintStrength.value=enabled?1:0;}
  setCameraMode(mode){if(['rear','side','leader'].includes(mode))this.cameraMode=mode;}
+ setSideYaw(value){this.sideYaw=clamp(value,-Math.PI/6,Math.PI/6);return this.sideYaw;}
+ setViewZoom(value){
+  if(!Number.isFinite(value))return this.viewZoom;
+  this.viewZoom=clamp(value,.55,2.5);this.camera.zoom=this.viewZoom;this.camera.updateProjectionMatrix();
+  return this.viewZoom;
+ }
  colorPanorama(img,index){
   const c=canvas(img.width,img.height),x=c.getContext('2d');
   x.filter='saturate(1.22) contrast(1.025)';x.drawImage(img,0,0);x.filter='none';
@@ -77,10 +83,10 @@ export class RaceWorld extends RearWorld{
   this.groundImages=COURSES.map((_,i)=>this.makeGroundImage(i));
   this.roadCanvas=canvas(512,512);this.roadCtx=this.roadCanvas.getContext('2d');
   this.groundCanvas=canvas(512,512);this.groundCtx=this.groundCanvas.getContext('2d');
-  this.roadMap=map(this.roadCanvas,1,80);this.groundMap=map(this.groundCanvas,12,70);
+  this.roadMap=map(this.roadCanvas,1,80);this.groundMap=map(this.groundCanvas,12*TERRAIN_HALF_WIDTH/125,70);
   this.road.material.map=this.roadMap;this.road.material.color.set('#ffffff');this.road.material.roughness=.86;this.road.material.needsUpdate=true;
   this.scene.remove(this.terrain);
-  this.terrain=new THREE.Mesh(new THREE.PlaneGeometry(250,1400),new THREE.MeshStandardMaterial({map:this.groundMap,roughness:1,color:0xffffff}));
+  this.terrain=new THREE.Mesh(new THREE.PlaneGeometry(TERRAIN_HALF_WIDTH*2,1400),new THREE.MeshStandardMaterial({map:this.groundMap,roughness:1,color:0xffffff}));
   this.terrain.rotation.x=-Math.PI/2;this.terrain.position.set(0,-.16,300);this.scene.add(this.terrain);
   // Low curbs retain depth without hiding the feet in the side camera.
   this.scenery.traverse(o=>{if(!o.isMesh)return;o.material=o.material.clone();this.edgeMaterials.push(o.material);
@@ -183,19 +189,23 @@ export class RaceWorld extends RearWorld{
   if(!ranking.length)return;
   const time=options.idle?0:(options.raceTime??cinemaTime(t)),weight=this.sideWeight,leaderMode=this.cameraMode==='leader';
   const followed=options.follow&&t<50?this.plan.runners.find(r=>r.id===options.follow):null;
+  // Leader mode follows progress along the rail, never the changing leader's lane.
+  this.cameraFocus=leaderMode?null:followed;
   if(this.cameraMode==='side'&&!followed){
    this.frameWholePack(time,weight);
    this.finishGate.children.forEach(o=>{if(o.isMesh&&o.geometry===this.cyl)o.visible=!(weight>.6&&o.position.x<0);});
    return;
   }
-  const wide=leaderMode?0:1-smooth(20,49,t),close=leaderMode?1:smooth(49,55,t),lock=leaderMode?0:smooth(54,56,t);
+  // The finish-line cut belongs to the rear shot. A leader shot must keep
+  // travelling with the front runner, including after crossing the stripe.
+  const wide=leaderMode?0:1-smooth(20,49,t),close=leaderMode?1:smooth(49,55,t),lock=leaderMode||this.cameraFocus?0:smooth(54,56,t);
   const leadZ=positionAt(ranking[0],time),tailZ=positionAt(ranking.at(-1),time);
-  let z=leaderMode?leadZ-1:followed?positionAt(followed,time):lerp(leadZ-8,(leadZ+tailZ)*.5,wide);
-  let x=leaderMode?lateralAt(ranking[0],time):followed?lateralAt(followed,time):0;
+  let z=leaderMode?leadZ:followed?positionAt(followed,time):lerp(leadZ-8,(leadZ+tailZ)*.5,wide);
+  let x=this.cameraFocus?renderedLateralAt(this.cameraFocus,time,options.idle?null:undefined,options.animTime??t):0;
   z=lerp(z,FINISH-4,lock);x=lerp(x,0,lock);
   const distance=(leaderMode?28:lerp(lerp(42,58,wide),35,close))*Math.max(1,.9/this.camera.aspect);
-  const sidePos=new THREE.Vector3(x-distance,leaderMode?16:lerp(lerp(21,29,wide),18,close),z-distance*.16);
-  const sideTarget=new THREE.Vector3(x,lerp(1.8,2.4,close),z);
+  const sidePos=new THREE.Vector3(x-distance,leaderMode?12:lerp(lerp(21,29,wide),18,close),z);
+  const sideTarget=new THREE.Vector3(x,this.cameraFocus?(this.cameraFocus.type===2?3.8:3.5)*.4:lerp(1.8,2.4,close),z);
   this.camPos.lerp(sidePos,weight);this.camTarget.lerp(sideTarget,weight);
   this.camera.fov=lerp(45,40,close*weight);this.camera.updateProjectionMatrix();
   // Avoid a finish arch between the side camera and the front runners.
@@ -206,9 +216,12 @@ export class RaceWorld extends RearWorld{
   // Fit only the occupied racing area. A compact pack gets a closer shot;
   // a stretched field opens the framing just enough to include the last runner.
   if(!this.packFrame){
-   const back=new THREE.Vector3(-1,.5,-.14).normalize(),right=new THREE.Vector3(back.z,0,-back.x).normalize();
+   const back=new THREE.Vector3(),right=new THREE.Vector3();
    this.packFrame={back,right,up:new THREE.Vector3().crossVectors(back,right),position:new THREE.Vector3(),target:new THREE.Vector3()};
   }
+  const frame=this.packFrame;
+  frame.back.set(-Math.cos(this.sideYaw),.32,Math.sin(this.sideYaw)).normalize();
+  frame.right.set(frame.back.z,0,-frame.back.x).normalize();frame.up.crossVectors(frame.back,frame.right);
   let minX=Infinity,maxX=-Infinity,minZ=Infinity,maxZ=-Infinity;
   for(const runner of this.plan.runners){const x=lateralAt(runner,time),z=positionAt(runner,time);minX=Math.min(minX,x);maxX=Math.max(maxX,x);minZ=Math.min(minZ,z);maxZ=Math.max(maxZ,z);}
   const f=this.packFrame,tx=(minX+maxX)/2,tz=(minZ+maxZ)/2,ty=2.8;
@@ -238,8 +251,8 @@ export class RaceWorld extends RearWorld{
    c.fillStyle='#ffdc85';c.strokeStyle='#806035';c.lineWidth=1.5;c.beginPath();c.roundRect(bx,by,badgeW,badgeH,10);c.fill();c.stroke();c.fillStyle='#443018';c.textAlign='center';c.textBaseline='middle';c.font='400 15px "Race Jua",sans-serif';c.fillText('♛ 1위',bx+badgeW/2,by+badgeH/2);
    c.restore();
   }
-  if(t>=56&&t<60){
-   const a=smooth(56,56.5,t);c.fillStyle=`rgba(12,16,35,${.7*a})`;c.fillRect(0,0,w,12);c.fillRect(0,h-12,w,12);
+  if(options.slowMotion){
+   const a=smooth(58.5,58.75,t);c.fillStyle=`rgba(12,16,35,${.7*a})`;c.fillRect(0,0,w,12);c.fillRect(0,h-12,w,12);
   }
   // Local bursts at each crossing keep the finish readable without camera shake.
   if(!options.idle&&t>=56){
